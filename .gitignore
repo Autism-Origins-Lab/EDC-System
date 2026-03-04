@@ -1,0 +1,6 @@
+# Mac OS related files
+.DS_Store
+__MACOSX/
+
+# Image/audio/video files (or the folder that contains them)
+# UPDATE THIS LATERs
