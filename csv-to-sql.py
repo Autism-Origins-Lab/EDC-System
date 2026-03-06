@@ -1,7 +1,12 @@
+import sqlite3
 import pandas as pd
 import tkinter as tk
+import sqlalchemy as db
 from tkinter import filedialog
 from tkinter import messagebox
+
+# database filename - modify this to modify where the databases are saved
+DATABASE_FILENAME = "data.db"
 
 # list of datatypes
 datatypes = ["Boolean", "Date/Time", "Decimal", "Integer", "Text"]
@@ -12,8 +17,8 @@ filename = "None"
 # stores dataframe
 dataframe = pd.DataFrame()
 
-# stores header types
-headertypes = []
+# stores header types in dictionary
+headertypes = {}
 
 # function to choose CSV file
 def choose_csv_file():
@@ -64,9 +69,9 @@ def upload():
     for i in range(len(dataframe.columns)):
         # create labels & options
         labels += [tk.Label(processor, text=dataframe.columns[i], justify="left")]
-        headertypes += [tk.StringVar()]
-        headertypes[i].set(" ")
-        optionmenus += [tk.OptionMenu(processor, headertypes[i], None, *datatypes)]
+        headertypes[dataframe.columns[i]] = tk.StringVar()
+        headertypes[dataframe.columns[i]].set(" ")
+        optionmenus += [tk.OptionMenu(processor, headertypes[dataframe.columns[i]], None, *datatypes)]
 
         # display labels & options
         labels[i].grid(row=i, column=0, sticky="W")
@@ -78,7 +83,7 @@ def upload():
     name.set(" ")
 
     # name database
-    label = tk.Label(processor, text="Database Name: ", justify="left")
+    label = tk.Label(processor, text="Table Name", justify="left")
     namefield = tk.Entry(processor, textvariable=name)
     label.grid(row=len(dataframe.columns), column=0, sticky="W")
     namefield.grid(row=len(dataframe.columns), column=1, sticky="W")
@@ -91,7 +96,7 @@ def upload():
 def create_db():
     # verify that all the columns have been given a type
     for type in headertypes:
-        if type.get() == " ":
+        if headertypes[type].get() == " ":
             print("failed")
             messagebox.showerror("Error: Type Not Specified", "All columns must have its data type specified.")
             return
@@ -99,11 +104,33 @@ def create_db():
     # verify that the database has a name
     if name.get() == " ":
         print("failed")
-        messagebox.showerror("Error: Name Not Specified", "A name must be specified for the database.")
+        messagebox.showerror("Error: Name Not Specified", "A name must be specified for the table.")
         return
-        
+    
+    # check that name is only alphanumeric characters
+    if not name.get().isalnum():
+        print("failed")
+        messagebox.showerror("Error: Name Must Be Alphanumeric", "The name for the database must only include letters and numbers.")
+        return
+    
+    # go through dictionary and replace types with actual types
+    for type in headertypes:
+        if headertypes[type] == "Integer":
+            headertypes[type] = "INTEGER"
+        elif headertypes[type] == "Decimal":
+            headertypes[type] = "FLOAT"
+        elif headertypes[type] == "Date/Time":
+            headertypes[type] = "DATETIME"
+        elif headertypes[type] == "Boolean":
+            headertypes[type] = "BOOLEAN"
+        else:
+            headertypes[type] = "TEXT"
+    
     # create sql database
-    print("created database {0}".format(name.get()))
+    connection = sqlite3.connect(DATABASE_FILENAME)
+    dataframe.to_sql(name.get(), connection, if_exists="replace", index=False, dtype=headertypes)
+
+    print("created table {0}".format(name.get()))
     processor.destroy()
 
 # create GUI window

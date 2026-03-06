@@ -4,3 +4,6 @@ __MACOSX/
 
 # Image/audio/video files (or the folder that contains them)
 # UPDATE THIS LATER
+
+# Database files
+data.db
