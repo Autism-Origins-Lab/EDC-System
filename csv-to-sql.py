@@ -1,4 +1,3 @@
-import sqlite3
 import pandas as pd
 import tkinter as tk
 import sqlalchemy as db
@@ -95,11 +94,25 @@ def upload():
 # command to create database
 def create_db():
     # verify that all the columns have been given a type
-    for type in headertypes:
-        if headertypes[type].get() == " ":
-            print("failed")
-            messagebox.showerror("Error: Type Not Specified", "All columns must have its data type specified.")
-            return
+    for header in headertypes:
+        # ignore if column has already been checked
+        if isinstance(headertypes[header], tk.StringVar):
+            if headertypes[header].get() == " ":
+                print("failed")
+                messagebox.showerror("Error: Type Not Specified", "All columns must have its data type specified.")
+                return
+            
+        # replace types in dictionary
+        if headertypes[header].get() == "Integer":
+            headertypes[header] = db.Integer()
+        elif headertypes[header].get() == "Decimal":
+            headertypes[header] = db.Float()
+        elif headertypes[header].get() == "Date/Time":
+            headertypes[header] = db.DateTime()
+        elif headertypes[header].get() == "Boolean":
+            headertypes[header] = db.Boolean()
+        else:
+            headertypes[header] = db.Text()
     
     # verify that the database has a name
     if name.get() == " ":
@@ -113,22 +126,11 @@ def create_db():
         messagebox.showerror("Error: Name Must Be Alphanumeric", "The name for the database must only include letters and numbers.")
         return
     
-    # go through dictionary and replace types with actual types
-    for type in headertypes:
-        if headertypes[type] == "Integer":
-            headertypes[type] = "INTEGER"
-        elif headertypes[type] == "Decimal":
-            headertypes[type] = "FLOAT"
-        elif headertypes[type] == "Date/Time":
-            headertypes[type] = "DATETIME"
-        elif headertypes[type] == "Boolean":
-            headertypes[type] = "BOOLEAN"
-        else:
-            headertypes[type] = "TEXT"
+    print(headertypes)
     
     # create sql database
-    connection = sqlite3.connect(DATABASE_FILENAME)
-    dataframe.to_sql(name.get(), connection, if_exists="replace", index=False, dtype=headertypes)
+    engine = db.create_engine("sqlite:///{0}".format(DATABASE_FILENAME))
+    dataframe.to_sql(name.get(), engine, if_exists="replace", index=False, dtype=headertypes)
 
     print("created table {0}".format(name.get()))
     processor.destroy()
