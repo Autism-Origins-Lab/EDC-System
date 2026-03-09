@@ -117,7 +117,31 @@ def verify_int_column(column):
                 return (True, "Error: Unknown Type Converted To Integer", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be an integer.".format(item, i+2, column))
     return (False, "No Error Found", "There are no errors in this column.")
 
+# method to verify if float data in a column is valid
+# if boolean or int, check if conversion should take place
+# for all other types, return an error message
 def verify_float_column(column):
+    int_conversion = None
+    boolean_conversion = None
+    for i in range(dataframe.shape[0]):
+        item = dataframe.iloc[i][column]
+        if type(item) is not np.float64:
+            if type(item) is np.int64:
+                if int_conversion == None:
+                    int_conversion = messagebox.askyesno("Integer Conversion", "Value \"{0}\" at row {1} in column {2} is an integer. Convert column to decimals?".format(item, i+2, column))
+                if int_conversion == False:
+                    return (True, "Error: Integer Converted To Decimal", "Value \"{0}\" at row {1} in column {2} is an integer. It should be a decimal.".format(item, i+2, column))
+            elif type(item) is pd.Timestamp:
+                return (True, "Error: Date/Time Converted To Decimal", "Value \"{0}\" at row {1} in column {2} is a date/time. It should be a decimal.".format(item, i+2, column))
+            elif type(item) is np.bool:
+                if boolean_conversion == None:
+                    boolean_conversion = messagebox.askyesno("Boolean Conversion", "Value \"{0}\" at row {1} in column {2} is a boolean. Convert column to decimals?".format(item, i+2, column))
+                if boolean_conversion == False:
+                    return (True, "Error: Boolean Converted To Decimal", "Value \"{0}\" at row {1} in column {2} is a boolean. It should be a decimal.".format(item, i+2, column))
+            elif type(item) is str:
+                return (True, "Error: Text Converted To Decimal", "Value \"{0}\" at row {1} in column {2} is text. It should be a decimal.".format(item, i+2, column))
+            else:
+                return (True, "Error: Unknown Type Converted To Decimal", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be a decimal.".format(item, i+2, column))
     return (False, "No Error Found", "There are no errors in this column.")
 
 def verify_datetime_column(column):
