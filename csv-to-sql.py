@@ -1,6 +1,8 @@
 import pandas as pd
 import tkinter as tk
-import sqlalchemy as db
+import sqlite3
+import numpy as np
+import datetime
 from tkinter import filedialog
 from tkinter import messagebox
 
@@ -18,6 +20,7 @@ dataframe = pd.DataFrame()
 
 # stores header types in dictionary
 headertypes = {}
+actual_headertypes = {}
 
 # function to choose CSV file
 def choose_csv_file():
@@ -91,28 +94,60 @@ def upload():
     submitbutton = tk.Button(processor, text="Create Database", command=create_db)
     submitbutton.grid(row=len(dataframe.columns)+1, column=0, sticky="W")
 
+# method to verify if integer data in a column is valid
+# if boolean, check if conversion should take place
+# for all other types, return an error message
+def verify_int_column(column):
+    boolean_conversion = None
+    for i in range(dataframe.shape[0]):
+        item = dataframe.iloc[i][column]
+        if type(item) is not np.int64:
+            if type(item) is np.float64:
+                return (True, "Error: Float Converted To Integer", "Value \"{0}\" at row {1} in column {2} is a decimal. It should be an integer.".format(item, i+2, column))
+            elif type(item) is pd.Timestamp:
+                return (True, "Error: Date/Time Converted To Integer", "Value \"{0}\" at row {1} in column {2} is a date/time. It should be an integer.".format(item, i+2, column))
+            elif type(item) is np.bool:
+                if boolean_conversion == None:
+                    boolean_conversion = messagebox.askyesno("Boolean Conversion", "Value \"{0}\" at row {1} in column {2} is a boolean. Convert column to integers?".format(item, i+2, column))
+                if boolean_conversion == False:
+                    return (True, "Error: Boolean Converted To Integer", "Value \"{0}\" at row {1} in column {2} is a boolean. It should be an integer.".format(item, i+2, column))
+            elif type(item) is str:
+                return (True, "Error: Text Converted To Integer", "Value \"{0}\" at row {1} in column {2} is text. It should be an integer.".format(item, i+2, column))
+            else:
+                return (True, "Error: Unknown Type Converted To Integer", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be an integer.".format(item, i+2, column))
+    return (False, "No Error Found", "There are no errors in this column.")
+
+def verify_float_column(column):
+    return (False, "No Error Found", "There are no errors in this column.")
+
+def verify_datetime_column(column):
+    return (False, "No Error Found", "There are no errors in this column.")
+
+def verify_boolean_column(column):
+    return (False, "No Error Found", "There are no errors in this column.")
+
+def verify_text_column(column):
+    return (False, "No Error Found", "There are no errors in this column.")
+
 # command to create database
 def create_db():
-    # verify that all the columns have been given a type
+    # verify that all the columns have been given a type & assign types to dictionary
     for header in headertypes:
-        # ignore if column has already been checked
-        if isinstance(headertypes[header], tk.StringVar):
-            if headertypes[header].get() == " ":
-                print("failed")
-                messagebox.showerror("Error: Type Not Specified", "All columns must have its data type specified.")
-                return
-            
         # replace types in dictionary
         if headertypes[header].get() == "Integer":
-            headertypes[header] = db.Integer()
+            actual_headertypes[header] = "INTEGER"
         elif headertypes[header].get() == "Decimal":
-            headertypes[header] = db.Float()
+            actual_headertypes[header] = "FLOAT"
         elif headertypes[header].get() == "Date/Time":
-            headertypes[header] = db.DateTime()
+            actual_headertypes[header] = "DATETIME"
         elif headertypes[header].get() == "Boolean":
-            headertypes[header] = db.Boolean()
+            actual_headertypes[header] = "BOOLEAN"
+        elif headertypes[header].get() == "Text":
+            actual_headertypes[header] = "TEXT"
         else:
-            headertypes[header] = db.Text()
+            print("failed")
+            messagebox.showerror("Error: Type Not Specified", "All columns must have its data type specified.")
+            return
     
     # verify that the database has a name
     if name.get() == " ":
@@ -125,12 +160,40 @@ def create_db():
         print("failed")
         messagebox.showerror("Error: Name Must Be Alphanumeric", "The name for the database must only include letters and numbers.")
         return
-    
-    print(headertypes)
+
+    # verify each row as appropriate
+    for column in dataframe.columns.values.tolist():
+        # set default error messages
+        error = False
+        error_name = "Error Not Specified"
+        error_message = "The current error is not specified"
+
+        # for each column, check if there's any errors in the column
+        if actual_headertypes[column] == "INTEGER":
+            (error, error_name, error_message) = verify_int_column(column)
+        elif actual_headertypes[column] == "FLOAT":
+            (error, error_name, error_message) = verify_float_column(column)
+        elif actual_headertypes[column] == "DATETIME":
+            (error, error_name, error_message) = verify_datetime_column(column)
+        elif actual_headertypes[column] == "BOOLEAN":
+            (error, error_name, error_message) = verify_boolean_column(column)
+        elif actual_headertypes[column] == "TEXT":
+            (error, error_name, error_message) = verify_text_column(column)
+        else:
+            error = True
+            error_name = "Error: Invalid Column Type"
+            error_message = "Column {0} must have its data type specified.".format(column)
+        
+        # if there is an error in a row, output the error
+        if error:
+            print("failed")
+            messagebox.showerror(error_name, error_message)
+            return
+        
     
     # create sql database
-    engine = db.create_engine("sqlite:///{0}".format(DATABASE_FILENAME))
-    dataframe.to_sql(name.get(), engine, if_exists="replace", index=False, dtype=headertypes)
+    connection = sqlite3.connect(DATABASE_FILENAME)
+    dataframe.to_sql(name.get(), connection, if_exists="replace", index=False, dtype=actual_headertypes)
 
     print("created table {0}".format(name.get()))
     processor.destroy()
