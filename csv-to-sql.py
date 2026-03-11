@@ -144,13 +144,85 @@ def verify_float_column(column):
                 return (True, "Error: Unknown Type Converted To Decimal", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be a decimal.".format(item, i+2, column))
     return (False, "No Error Found", "There are no errors in this column.")
 
+# method to verify if datetime data in a column is valid
+# attempt to convert strings to datetime if possible
+# otherewise, returns an error message
 def verify_datetime_column(column):
+    string_conversion = None
+    for i in range(dataframe.shape[0]):
+        item = dataframe.at[i, column]
+        if type(item) is not pd.Timestamp:
+            if type(item) is np.int64:
+                return (True, "Error: Integer Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} is an integer. It should be a date/time.".format(item, i+2, column))
+            elif type(item) is np.float64:
+                return (True, "Error: Float Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} is a decimal. It should be a date/time.".format(item, i+2, column))
+            elif type(item) is np.bool:
+                return (True, "Error: Boolean Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} is a boolean. It should be a date/time.".format(item, i+2, column))
+            elif type(item) is str:
+                if string_conversion == None:
+                    string_conversion = messagebox.askyesno("Text Conversion", "Value \"{0}\" at row {1} in column {2} is text. Convert column to dates/times?".format(item, i+2, column))
+                if string_conversion == True:
+                    try:
+                        dataframe.at[i, column] = pd.to_datetime(item).isoformat()
+                    except:
+                        return (True, "Error: Text Cannot Be Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} cannot be converted to a date/time.".format(item, i+2, column))
+                if string_conversion == False:
+                    return (True, "Error: Text Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} is text. It should be a date/time.".format(item, i+2, column))
+            else:
+                return (True, "Error: Unknown Type Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be a date/time.".format(item, i+2, column))
     return (False, "No Error Found", "There are no errors in this column.")
 
+# method to verify if boolean data in a column is valid
+# returns an error message
 def verify_boolean_column(column):
+    for i in range(dataframe.shape[0]):
+        item = dataframe.at[i, column]
+        if type(item) is not np.bool:
+            if type(item) is np.int64:
+                return (True, "Error: Integer Converted To Boolean", "Value \"{0}\" at row {1} in column {2} is an integer. It should be a boolean.".format(item, i+2, column))
+            elif type(item) is np.float64:
+                return (True, "Error: Float Converted To Boolean", "Value \"{0}\" at row {1} in column {2} is a decimal. It should be a boolean.".format(item, i+2, column))
+            elif type(item) is pd.Timestamp:
+                return (True, "Error: Date/Time Converted To Boolean", "Value \"{0}\" at row {1} in column {2} is a date/time. It should be a boolean.".format(item, i+2, column))
+            elif type(item) is str:
+                return (True, "Error: Text Converted To Boolean", "Value \"{0}\" at row {1} in column {2} is text. It should be a boolean.".format(item, i+2, column))
+            else:
+                return (True, "Error: Unknown Type Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be a date/time.".format(item, i+2, column))
     return (False, "No Error Found", "There are no errors in this column.")
 
+# method to verify if string data in a column is valid
+# attempts to convert to strings if requested
+# otherwise, returns an error message
 def verify_text_column(column):
+    int_conversion = None
+    float_conversion = None
+    datetime_conversion = None
+    boolean_conversion = None
+    for i in range(dataframe.shape[0]):
+        item = dataframe.at[i, column]
+        if type(item) is not str:
+            if type(item) is np.int64:
+                if int_conversion == None:
+                    int_conversion = messagebox.askyesno("Integer Conversion", "Value \"{0}\" at row {1} in column {2} is an integer. Convert column to text?".format(item, i+2, column))
+                if int_conversion == False:
+                    return (True, "Error: Integer Converted To Text", "Value \"{0}\" at row {1} in column {2} is an integer. It should be text.".format(item, i+2, column))
+            elif type(item) is np.float64:
+                if float_conversion == None:
+                    float_conversion = messagebox.askyesno("Decimal Conversion", "Value \"{0}\" at row {1} in column {2} is a decimal. Convert column to text?".format(item, i+2, column))
+                if float_conversion == False:
+                    return (True, "Error: Float Converted To Text", "Value \"{0}\" at row {1} in column {2} is a decimal. It should be text.".format(item, i+2, column))
+            elif type(item) is pd.Timestamp:
+                if datetime_conversion == None:
+                    datetime_conversion = messagebox.askyesno("Date/Time Conversion", "Value \"{0}\" at row {1} in column {2} is a date/time. Convert column to text?".format(item, i+2, column))
+                if datetime_conversion == False:
+                    return (True, "Error: Date/Time Converted To Text", "Value \"{0}\" at row {1} in column {2} is a date/time. It should be text.".format(item, i+2, column))
+            elif type(item) is np.bool:
+                if boolean_conversion == None:
+                    boolean_conversion = messagebox.askyesno("Boolean Conversion", "Value \"{0}\" at row {1} in column {2} is a boolean. Convert column to text?".format(item, i+2, column))
+                if boolean_conversion == False:
+                    return (True, "Error: Text Converted To Text", "Value \"{0}\" at row {1} in column {2} is text. It should be text.".format(item, i+2, column))
+            else:
+                return (True, "Error: Unknown Type Converted To Text", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be text.".format(item, i+2, column))
     return (False, "No Error Found", "There are no errors in this column.")
 
 # command to create database
