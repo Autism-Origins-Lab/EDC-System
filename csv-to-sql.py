@@ -33,9 +33,6 @@ def choose_csv_file():
 
 # function to upload CSV file
 def upload():
-    # stores the filetype
-    filetype = None
-
     # verify the file is a spreadsheet & read into pandas dataframe
     global dataframe
     if filename[-4:] == '.csv':
@@ -54,7 +51,6 @@ def upload():
         print("failed")
         messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
         return
-    print(filetype)
     root.destroy()
 
     # create new GUI window
