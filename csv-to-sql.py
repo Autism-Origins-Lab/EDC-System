@@ -2,7 +2,6 @@ import pandas as pd
 import tkinter as tk
 import sqlite3
 import numpy as np
-import datetime
 from tkinter import filedialog
 from tkinter import messagebox
 
@@ -37,24 +36,26 @@ def upload():
     # stores the filetype
     filetype = None
 
-    # verify the file is a spreadsheet
+    # verify the file is a spreadsheet & read into pandas dataframe
+    global dataframe
     if filename[-4:] == '.csv':
-        filetype = "csv"
+        try: 
+            dataframe = pd.read_csv(filename)
+        except:
+            messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
+            return
     elif filename[-5:] == '.xlsx':
-        filetype = "excel"
+        try: 
+            dataframe = pd.read_excel(filename)
+        except:
+            messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
+            return
     else:
         print("failed")
         messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
         return
     print(filetype)
     root.destroy()
-
-    # read CSV or Excel file into pandas dataframe
-    global dataframe
-    if filetype == "csv":
-        dataframe = pd.read_csv(filename)
-    elif filetype == "excel":
-        dataframe = pd.read_excel(filename)
 
     # create new GUI window
     global processor
@@ -244,13 +245,7 @@ def create_db():
             print("failed")
             messagebox.showerror("Error: Type Not Specified", "All columns must have its data type specified.")
             return
-    
-    # verify that the database has a name
-    if name.get() == " ":
-        print("failed")
-        messagebox.showerror("Error: Name Not Specified", "A name must be specified for the table.")
-        return
-    
+        
     # check that name is only alphanumeric characters
     if not name.get().isalnum():
         print("failed")
@@ -285,7 +280,6 @@ def create_db():
             print("failed")
             messagebox.showerror(error_name, error_message)
             return
-        
     
     # create sql database
     connection = sqlite3.connect(DATABASE_FILENAME)
