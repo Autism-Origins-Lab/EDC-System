@@ -1,5 +1,8 @@
-from . import csv_to_sql
 import unittest
+import sys
+sys.path.insert(0, '../')
+
+import csv_to_sql
 
 class Test_VerifySpreadsheetAndReadToDataframe(unittest.TestCase):
     # ensures that a valid CSV file returns expected results

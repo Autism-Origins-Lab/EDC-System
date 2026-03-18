@@ -332,4 +332,8 @@ defaultcheck.select()
 rewritecheck.select()
 
 # starts the event loop & keeps GUI responsive
-root.mainloop()
+def main():
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
