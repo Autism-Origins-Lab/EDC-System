@@ -37,20 +37,23 @@ def upload():
             dataframe = pd.read_csv(filename)
         except:
             messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
-            return
+            return False
     elif filename[-5:] == '.xlsx':
         try: 
             dataframe = pd.read_excel(filename)
         except:
             messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
-            return
+            return False
     else:
         print("failed")
         messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
-        return
+        return False
     root.destroy()
+    settypes()
+    return True
 
-    # create new GUI window
+# create new GUI window
+def settypes():
     global processor
     processor = tk.Tk()
     processor.minsize(400, 200)
