@@ -5,9 +5,6 @@ import numpy as np
 from tkinter import filedialog
 from tkinter import messagebox
 
-# database filename - modify this to modify where the databases are saved
-DATABASE_FILENAME = "data.db"
-
 # list of datatypes
 datatypes = ["Boolean", "Date/Time", "Decimal", "Integer", "Text"]
 
@@ -69,7 +66,6 @@ def upload():
         # create labels & options
         labels += [tk.Label(processor, text=dataframe.columns[i], justify="left")]
         headertypes[dataframe.columns[i]] = tk.StringVar()
-        headertypes[dataframe.columns[i]].set(" ")
         optionmenus += [tk.OptionMenu(processor, headertypes[dataframe.columns[i]], None, *datatypes)]
 
         # display labels & options
@@ -79,17 +75,27 @@ def upload():
     # create variable to store name
     global name
     name = tk.StringVar()
-    name.set(" ")
 
-    # name database
+    # name table
     label = tk.Label(processor, text="Table Name", justify="left")
     namefield = tk.Entry(processor, textvariable=name)
     label.grid(row=len(dataframe.columns), column=0, sticky="W")
     namefield.grid(row=len(dataframe.columns), column=1, sticky="W")
 
+    # name database (if not using default)
+    global database_filename
+    database_filename = tk.StringVar()
+    if not defaultdatabase.get():
+        databaselabel = tk.Label(processor, text="Database Name", justify="left")
+        databasefield = tk.Entry(processor, textvariable=database_filename)
+        databaselabel.grid(row=len(dataframe.columns)+1, column=0, sticky="W")
+        databasefield.grid(row=len(dataframe.columns)+1, column=1, sticky="W")
+    else:
+        database_filename.set("data")
+
     # display button
     submitbutton = tk.Button(processor, text="Create Database", command=create_db)
-    submitbutton.grid(row=len(dataframe.columns)+1, column=0, sticky="W")
+    submitbutton.grid(row=len(dataframe.columns)+2, column=0, sticky="W")
 
 # method to verify if integer data in a column is valid
 # if boolean, check if conversion should take place
@@ -245,7 +251,13 @@ def create_db():
     # check that name is only alphanumeric characters
     if not name.get().isalnum():
         print("failed")
-        messagebox.showerror("Error: Name Must Be Alphanumeric", "The name for the database must only include letters and numbers.")
+        messagebox.showerror("Error: Name Must Be Alphanumeric", "The name for the table must only include letters and numbers.")
+        return
+    
+    # check that database name is only alphanumeric characters
+    if not database_filename.get().isalnum():
+        print("failed")
+        messagebox.showerror("Error: Database Name Must Be Alphanumeric", "The name for the database must only include letters and numbers.")
         return
 
     # verify each row as appropriate
@@ -278,7 +290,7 @@ def create_db():
             return
     
     # create sql database
-    connection = sqlite3.connect(DATABASE_FILENAME)
+    connection = sqlite3.connect("databases/{0}.db".format(database_filename.get()))
     dataframe.to_sql(name.get(), connection, if_exists="replace", index=False, dtype=actual_headertypes)
 
     print("created table {0}".format(name.get()))
@@ -289,15 +301,22 @@ root = tk.Tk()
 root.minsize(400, 200)
 root.title("Upload Sheet to Database")
 
+# stores whether we're using a default database or not
+global defaultdatabase
+defaultdatabase = tk.BooleanVar()
+
 # sets up GUI design
 label = tk.Label(root, text="File to upload: {0}".format(filename), wraplength=400, justify="center")
+defaultcheck = tk.Checkbutton(root, text='Use Default Database?',variable=defaultdatabase, onvalue=1, offvalue=0)
 filebutton = tk.Button(root, text="Choose Spreadsheet", command=choose_csv_file)
 submitbutton = tk.Button(root, text="Upload Spreadsheet", command=upload)
 
 # updates GUI design
 label.pack()
+defaultcheck.pack()
 filebutton.pack()
 submitbutton.pack()
+defaultcheck.select()
 
 # starts the event loop & keeps GUI responsive
 root.mainloop()

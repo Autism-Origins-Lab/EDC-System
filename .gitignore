@@ -6,4 +6,4 @@ __MACOSX/
 # UPDATE THIS LATER
 
 # Database files
-data.db
+databases/
