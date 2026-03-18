@@ -291,7 +291,10 @@ def create_db():
     
     # create sql database
     connection = sqlite3.connect("databases/{0}.db".format(database_filename.get()))
-    dataframe.to_sql(name.get(), connection, if_exists="replace", index=False, dtype=actual_headertypes)
+    if rewrite.get():
+        dataframe.to_sql(name.get(), connection, if_exists="replace", index=False, dtype=actual_headertypes)
+    else:
+        dataframe.to_sql(name.get(), connection, if_exists="append", index=False, dtype=actual_headertypes)
 
     print("created table {0}".format(name.get()))
     processor.destroy()
@@ -305,18 +308,25 @@ root.title("Upload Sheet to Database")
 global defaultdatabase
 defaultdatabase = tk.BooleanVar()
 
+# stores whether to rewrite or add to database if already exists
+global rewrite
+rewrite = tk.BooleanVar()
+
 # sets up GUI design
 label = tk.Label(root, text="File to upload: {0}".format(filename), wraplength=400, justify="center")
 defaultcheck = tk.Checkbutton(root, text='Use Default Database?',variable=defaultdatabase, onvalue=1, offvalue=0)
+rewritecheck = tk.Checkbutton(root, text="Rewrite If Preexisting?", variable=rewrite, onvalue=1, offvalue=0)
 filebutton = tk.Button(root, text="Choose Spreadsheet", command=choose_csv_file)
 submitbutton = tk.Button(root, text="Upload Spreadsheet", command=upload)
 
 # updates GUI design
 label.pack()
 defaultcheck.pack()
+rewritecheck.pack()
 filebutton.pack()
 submitbutton.pack()
 defaultcheck.select()
+rewritecheck.select()
 
 # starts the event loop & keeps GUI responsive
 root.mainloop()
