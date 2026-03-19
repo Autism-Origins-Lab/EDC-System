@@ -28,32 +28,33 @@ def choose_csv_file():
     print(filename)
     return filename
 
-# function to upload CSV file
-def upload():
-    # verify the file is a spreadsheet & read into pandas dataframe
+# function to verify file is a spreadsheet & read into pandas datafraome
+def verifyfilename():
     global dataframe
     if filename[-4:] == '.csv':
         try: 
             dataframe = pd.read_csv(filename)
         except:
-            messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
+            messagebox.showerror("Error: Wrong Filetype", "File selected cannot be found.")
             return False
     elif filename[-5:] == '.xlsx':
         try: 
             dataframe = pd.read_excel(filename)
         except:
-            messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
+            messagebox.showerror("Error: Wrong Filetype", "File selected cannot be found.")
             return False
     else:
         print("failed")
         messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
         return False
-    root.destroy()
-    settypes()
     return True
 
-# create new GUI window
-def settypes():
+# function to upload CSV file
+def upload():
+    verifyfilename()
+    root.destroy()
+    
+    # create new GUI window
     global processor
     processor = tk.Tk()
     processor.minsize(400, 200)
