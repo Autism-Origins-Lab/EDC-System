@@ -35,79 +35,78 @@ def verifyfilename():
         try: 
             dataframe = pd.read_csv(filename)
         except:
-            messagebox.showerror("Error: Wrong Filetype", "File selected cannot be found.")
-            return False
+            return (True, "Error: Invalid File", "File selected cannot be read.")
     elif filename[-5:] == '.xlsx':
         try: 
             dataframe = pd.read_excel(filename)
         except:
-            messagebox.showerror("Error: Wrong Filetype", "File selected cannot be found.")
-            return False
+            return (True, "Error: Invalid File", "File selected cannot be read.")
     else:
-        print("failed")
-        messagebox.showerror("Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
-        return False
-    return True
+        return (True, "Error: Wrong Filetype", "File selected must either end with either .csv or .xlsx.")
+    return (False, "Error Not Found", "An uncaught error occurred.")
 
 # function to upload CSV file
 def upload():
-    verifyfilename()
-    root.destroy()
-    
-    # create new GUI window
-    global processor
-    processor = tk.Tk()
-    processor.minsize(400, 200)
-    processor.title("Choose Data Types")
-
-    # stores labels and options
-    global headertypes
-    labels = []
-    optionmenus = []
-
-    # list headers for new GUI window
-    for i in range(len(dataframe.columns)):
-        # create labels & options
-        labels += [tk.Label(processor, text=dataframe.columns[i], justify="left")]
-        headertypes[dataframe.columns[i]] = tk.StringVar()
-        optionmenus += [tk.OptionMenu(processor, headertypes[dataframe.columns[i]], None, *datatypes)]
-
-        # display labels & options
-        labels[i].grid(row=i, column=0, sticky="W")
-        optionmenus[i].grid(row=i, column=1, sticky="W")
-    
-    # create variable to store name
-    global name
-    name = tk.StringVar()
-
-    # name table
-    label = tk.Label(processor, text="Table Name", justify="left")
-    namefield = tk.Entry(processor, textvariable=name)
-    label.grid(row=len(dataframe.columns), column=0, sticky="W")
-    namefield.grid(row=len(dataframe.columns), column=1, sticky="W")
-
-    # name database (if not using default)
-    global database_filename
-    database_filename = tk.StringVar()
-    if not defaultdatabase.get():
-        databaselabel = tk.Label(processor, text="Database Name", justify="left")
-        databasefield = tk.Entry(processor, textvariable=database_filename)
-        databaselabel.grid(row=len(dataframe.columns)+1, column=0, sticky="W")
-        databasefield.grid(row=len(dataframe.columns)+1, column=1, sticky="W")
+    (error, messagetitle, message) = verifyfilename()
+    if error:
+        messagebox.showerror(messagetitle, message)
+        return
     else:
-        database_filename.set("data")
+        root.destroy()
+        
+        # create new GUI window
+        global processor
+        processor = tk.Tk()
+        processor.minsize(400, 200)
+        processor.title("Choose Data Types")
 
-    # display button
-    submitbutton = tk.Button(processor, text="Create Database", command=create_db)
-    submitbutton.grid(row=len(dataframe.columns)+2, column=0, sticky="W")
+        # stores labels and options
+        global headertypes
+        labels = []
+        optionmenus = []
+
+        # list headers for new GUI window
+        for i in range(len(dataframe.columns)):
+            # create labels & options
+            labels += [tk.Label(processor, text=dataframe.columns[i], justify="left")]
+            headertypes[dataframe.columns[i]] = tk.StringVar()
+            optionmenus += [tk.OptionMenu(processor, headertypes[dataframe.columns[i]], None, *datatypes)]
+
+            # display labels & options
+            labels[i].grid(row=i, column=0, sticky="W")
+            optionmenus[i].grid(row=i, column=1, sticky="W")
+        
+        # create variable to store name
+        global name
+        name = tk.StringVar()
+
+        # name table
+        label = tk.Label(processor, text="Table Name", justify="left")
+        namefield = tk.Entry(processor, textvariable=name)
+        label.grid(row=len(dataframe.columns), column=0, sticky="W")
+        namefield.grid(row=len(dataframe.columns), column=1, sticky="W")
+
+        # name database (if not using default)
+        global database_filename
+        database_filename = tk.StringVar()
+        if not defaultdatabase.get():
+            databaselabel = tk.Label(processor, text="Database Name", justify="left")
+            databasefield = tk.Entry(processor, textvariable=database_filename)
+            databaselabel.grid(row=len(dataframe.columns)+1, column=0, sticky="W")
+            databasefield.grid(row=len(dataframe.columns)+1, column=1, sticky="W")
+        else:
+            database_filename.set("data")
+
+        # display button
+        submitbutton = tk.Button(processor, text="Create Database", command=create_db)
+        submitbutton.grid(row=len(dataframe.columns)+2, column=0, sticky="W")
 
 # method to verify if integer data in a column is valid
 # if boolean, check if conversion should take place
 # for all other types, return an error message
-def verify_int_column(column):
-    boolean_conversion = None
-    for i in range(dataframe.shape[0]):
-        item = dataframe.iloc[i][column]
+def verify_int_column(df, column, boolean_conversion=None):
+    for i in range(df.shape[0]):
+        item = df.iloc[i][column]
         if type(item) is not np.int64:
             if type(item) is np.float64:
                 return (True, "Error: Float Converted To Integer", "Value \"{0}\" at row {1} in column {2} is a decimal. It should be an integer.".format(item, i+2, column))
@@ -127,11 +126,9 @@ def verify_int_column(column):
 # method to verify if float data in a column is valid
 # if boolean or int, check if conversion should take place
 # for all other types, return an error message
-def verify_float_column(column):
-    int_conversion = None
-    boolean_conversion = None
-    for i in range(dataframe.shape[0]):
-        item = dataframe.iloc[i][column]
+def verify_float_column(df, column, int_conversion=None, boolean_conversion=None):
+    for i in range(df.shape[0]):
+        item = df.iloc[i][column]
         if type(item) is not np.float64:
             if type(item) is np.int64:
                 if int_conversion == None:
@@ -154,10 +151,9 @@ def verify_float_column(column):
 # method to verify if datetime data in a column is valid
 # attempt to convert strings to datetime if possible
 # otherewise, returns an error message
-def verify_datetime_column(column):
-    string_conversion = None
-    for i in range(dataframe.shape[0]):
-        item = dataframe.at[i, column]
+def verify_datetime_column(df, column, string_conversion = None):
+    for i in range(df.shape[0]):
+        item = df.at[i, column]
         if type(item) is not pd.Timestamp:
             if type(item) is np.int64:
                 return (True, "Error: Integer Converted To Date/Time", "Value \"{0}\" at row {1} in column {2} is an integer. It should be a date/time.".format(item, i+2, column))
@@ -181,9 +177,9 @@ def verify_datetime_column(column):
 
 # method to verify if boolean data in a column is valid
 # returns an error message
-def verify_boolean_column(column):
-    for i in range(dataframe.shape[0]):
-        item = dataframe.at[i, column]
+def verify_boolean_column(df, column):
+    for i in range(df.shape[0]):
+        item = df.at[i, column]
         if type(item) is not np.bool:
             if type(item) is np.int64:
                 return (True, "Error: Integer Converted To Boolean", "Value \"{0}\" at row {1} in column {2} is an integer. It should be a boolean.".format(item, i+2, column))
@@ -200,13 +196,9 @@ def verify_boolean_column(column):
 # method to verify if string data in a column is valid
 # attempts to convert to strings if requested
 # otherwise, returns an error message
-def verify_text_column(column):
-    int_conversion = None
-    float_conversion = None
-    datetime_conversion = None
-    boolean_conversion = None
-    for i in range(dataframe.shape[0]):
-        item = dataframe.at[i, column]
+def verify_text_column(df, column, int_conversion=None, float_conversion=None, datetime_conversion=None, boolean_conversion=None):
+    for i in range(df.shape[0]):
+        item = df.at[i, column]
         if type(item) is not str:
             if type(item) is np.int64:
                 if int_conversion == None:
@@ -227,10 +219,19 @@ def verify_text_column(column):
                 if boolean_conversion == None:
                     boolean_conversion = messagebox.askyesno("Boolean Conversion", "Value \"{0}\" at row {1} in column {2} is a boolean. Convert column to text?".format(item, i+2, column))
                 if boolean_conversion == False:
-                    return (True, "Error: Text Converted To Text", "Value \"{0}\" at row {1} in column {2} is text. It should be text.".format(item, i+2, column))
+                    return (True, "Error: Boolean Converted To Text", "Value \"{0}\" at row {1} in column {2} is text. It should be text.".format(item, i+2, column))
             else:
                 return (True, "Error: Unknown Type Converted To Text", "Value \"{0}\" at row {1} in column {2} is an unknown type. It should be text.".format(item, i+2, column))
     return (False, "No Error Found", "There are no errors in this column.")
+
+# create sql database
+def create_sql_db(df, types, tablename, dbname, rewrite):
+    connection = sqlite3.connect("databases/{0}.db".format(dbname))
+    if rewrite:
+        df.to_sql(tablename, connection, if_exists="replace", index=False, dtype=types)
+    else:
+        df.to_sql(tablename, connection, if_exists="append", index=False, dtype=types)
+    connection.close()
 
 # command to create database
 def create_db():
@@ -273,15 +274,15 @@ def create_db():
 
         # for each column, check if there's any errors in the column
         if actual_headertypes[column] == "INTEGER":
-            (error, error_name, error_message) = verify_int_column(column)
+            (error, error_name, error_message) = verify_int_column(dataframe, column)
         elif actual_headertypes[column] == "FLOAT":
-            (error, error_name, error_message) = verify_float_column(column)
+            (error, error_name, error_message) = verify_float_column(dataframe, column)
         elif actual_headertypes[column] == "DATETIME":
-            (error, error_name, error_message) = verify_datetime_column(column)
+            (error, error_name, error_message) = verify_datetime_column(dataframe, column)
         elif actual_headertypes[column] == "BOOLEAN":
-            (error, error_name, error_message) = verify_boolean_column(column)
+            (error, error_name, error_message) = verify_boolean_column(dataframe, column)
         elif actual_headertypes[column] == "TEXT":
-            (error, error_name, error_message) = verify_text_column(column)
+            (error, error_name, error_message) = verify_text_column(dataframe, column)
         else:
             error = True
             error_name = "Error: Invalid Column Type"
@@ -293,12 +294,7 @@ def create_db():
             messagebox.showerror(error_name, error_message)
             return
     
-    # create sql database
-    connection = sqlite3.connect("databases/{0}.db".format(database_filename.get()))
-    if rewrite.get():
-        dataframe.to_sql(name.get(), connection, if_exists="replace", index=False, dtype=actual_headertypes)
-    else:
-        dataframe.to_sql(name.get(), connection, if_exists="append", index=False, dtype=actual_headertypes)
+    create_sql_db(dataframe, actual_headertypes, name.get(), database_filename.get(), rewrite.get())
 
     print("created table {0}".format(name.get()))
     processor.destroy()
@@ -309,11 +305,9 @@ root.minsize(400, 200)
 root.title("Upload Sheet to Database")
 
 # stores whether we're using a default database or not
-global defaultdatabase
 defaultdatabase = tk.BooleanVar()
 
 # stores whether to rewrite or add to database if already exists
-global rewrite
 rewrite = tk.BooleanVar()
 
 # sets up GUI design
