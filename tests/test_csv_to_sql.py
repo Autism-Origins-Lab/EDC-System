@@ -29,7 +29,6 @@ class Test_VerifySpreadsheetAndReadToDataframe(unittest.TestCase):
         self.assertFalse(outcome)
         for header in self.csvdata.columns:
             for index in range(len(self.csvdata[header])):
-                print("Testing equality of {0}, {1}".format(csv_to_sql.dataframe[header][index], self.csvdata[header][index]))
                 self.assertTrue(csv_to_sql.dataframe[header][index] == self.csvdata[header][index])
     
     # ensures that a valid Excel file returns expected results
@@ -39,7 +38,6 @@ class Test_VerifySpreadsheetAndReadToDataframe(unittest.TestCase):
         self.assertFalse(outcome)
         for header in self.xlsxdata.columns:
             for index in range(len(self.xlsxdata[header])):
-                print("Testing equality of {0}, {1}".format(csv_to_sql.dataframe[header][index], self.xlsxdata[header][index]))
                 self.assertTrue(csv_to_sql.dataframe[header][index] == self.xlsxdata[header][index])
 
     # ensures that if a file doesn't exist, an error returns
