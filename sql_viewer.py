@@ -5,6 +5,10 @@ import numpy as np
 import os
 from tkinter import ttk
 
+# store current metric sorted by
+current_column = None
+ascending_sort = False
+
 # get databases
 databases = os.listdir("databases")
 tables = []
@@ -31,6 +35,31 @@ def gettabledata(database, table):
     connection.close()
     return result
 
+# sort column data
+def sort(column):
+    # get table data
+    tabledata = gettabledata(db_stringvar.get(), table_stringvar.get())
+
+    # set direction of sort
+    global current_column
+    global ascending_sort
+    ascending_sort = not ascending_sort if column is current_column else True
+    current_column = column
+
+    # sort data
+    return tabledata.sort_values(column, ascending=ascending_sort)
+
+# update the view based on sorted column data
+def update_sortedview(column, tree):
+    sorted = sort(column)
+
+    # clear current treeview
+    tree.delete(*tree.get_children())
+
+    # replace treeview data
+    for index, row in sorted.iterrows():
+        tree.insert("", tk.END, text=index, values=list(row))
+
 # view table
 def viewtable():
     print("viewing table {0} from {1}".format(table_stringvar.get(), db_stringvar.get()))
@@ -52,7 +81,7 @@ def viewtable():
     # display column headers
     for col in cols:
         tree.column(col, anchor="w")
-        tree.heading(col, text=col, anchor='w')
+        tree.heading(col, text=col, anchor='w', command=lambda x = col, y = tree: update_sortedview(x, y))
 
     # populate table with data
     for index, row in tabledata.iterrows():
