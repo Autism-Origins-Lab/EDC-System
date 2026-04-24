@@ -1,6 +1,5 @@
 import unittest
 import sys
-import os
 import pandas as pd
 import sqlite3
 sys.path.insert(0, '../')
@@ -27,12 +26,12 @@ class Test_GetSQLDatabase(unittest.TestCase):
 
     # test getting a list of tables from a database
     def test_gettables(self):
-        tables = sql_viewer.gettables("test.db")
+        tables = sql_viewer.gettables("test")
         self.assertEqual(tables, ["Testing123"])
 
     # test getting table data
     def test_gettabledata(self):
-        data = sql_viewer.gettabledata("test.db", "Testing123")
+        data = sql_viewer.gettabledata("test", "Testing123")
         data['Date'] = pd.to_datetime(data['Date'])
         for header in data.columns:
             for index in range(len(data[header])):

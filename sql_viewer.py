@@ -1,7 +1,6 @@
 import pandas as pd
 import tkinter as tk
 import sqlite3
-import numpy as np
 import os
 from tkinter import ttk
 
@@ -9,13 +8,17 @@ from tkinter import ttk
 current_column = None
 ascending_sort = False
 
+# store current table
+table = None
+
 # get databases
-databases = os.listdir("databases")
+databases = [db[:-3] for db in os.listdir("databases")]
+databases.remove("test")
 tables = []
 
 # get tables
 def gettables(database):
-    connection = sqlite3.connect("databases/{0}".format(database))
+    connection = sqlite3.connect("databases/{0}.db".format(database))
     result = connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = [x[0] for x in result.fetchall()]
     connection.close()
@@ -30,7 +33,7 @@ def updatetables(self):
 
 # get table
 def gettabledata(database, table):
-    connection = sqlite3.connect("databases/{0}".format(database))
+    connection = sqlite3.connect("databases/{0}.db".format(database))
     result = pd.read_sql_query("SELECT * FROM {0}".format(table), connection)
     connection.close()
     return result
@@ -49,7 +52,6 @@ def sort(column, table):
 # update the view based on sorted column data
 def update_sortedview(column, tree):
     old_column = current_column
-    table = gettabledata(db_stringvar.get(), table_stringvar.get())
     sorted = sort(column, table)
 
     # clear current treeview
@@ -64,23 +66,75 @@ def update_sortedview(column, tree):
     for index, row in sorted.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
 
+# filter a table and return the dataframe
+def filter_table(exclude, column, value, df):
+    return df[df[column].astype(str) != value] if exclude else df[df[column].astype(str) == value]
+
+# update the view based on filtered data
+def update_filteredview(tree):
+    # get whether this is an inclusion or exclusion filter
+    exclude = True if (filtertype_stringvar.get() == "Exclude") else False
+    column = filtercol_stringvar.get()
+    value = filter_stringvar.get()
+
+    # get current table data, set up filter, and filter table
+    global table
+    table = gettabledata(db_stringvar.get(), table_stringvar.get())
+    table = filter_table(exclude, column, value, table)
+
+    # clear current treeview
+    tree.delete(*tree.get_children())
+
+    # replace column headers
+    global current_column
+    if current_column is not None:
+        tree.heading(current_column, text=current_column, anchor='w', command=lambda x = current_column, y = tree: update_sortedview(x, y))
+    current_column = None
+
+    # replace treeview data
+    for index, row in table.iterrows():
+        tree.insert("", tk.END, text=index, values=list(row))
+
 # view table
 def viewtable():
     print("viewing table {0} from {1}".format(table_stringvar.get(), db_stringvar.get()))
     root.destroy()
 
     # get table
-    tabledata = gettabledata(db_stringvar.get(), table_stringvar.get())
+    global table
+    table = gettabledata(db_stringvar.get(), table_stringvar.get())
 
     # view table
     viewer = tk.Tk()
-    viewer.minsize(400, 200)
+    viewer.minsize(400, 300)
     viewer.title("{0} - {1}".format(table_stringvar.get(), db_stringvar.get()))
+    viewer.rowconfigure(1, weight=1)
+    viewer.columnconfigure(3, weight=1)
 
-    # set up columns and tree
-    cols = list(tabledata.columns)
+    # set up columns
+    cols = list(table.columns)
+
+    # create tree
     tree = ttk.Treeview(viewer, columns=cols, show='headings')
-    tree.pack(fill="both", expand=True)
+
+    # create filter UI
+    global filtertype_stringvar
+    global filtercol_stringvar
+    global filter_stringvar
+    filtertype_stringvar = tk.StringVar()
+    filtercol_stringvar = tk.StringVar()
+    filter_stringvar = tk.StringVar()
+    filter_type = tk.OptionMenu(viewer, filtertype_stringvar, None, *["Only Include", "Exclude"])
+    filter_column = tk.OptionMenu(viewer, filtercol_stringvar, None, *cols)
+    filter = tk.Entry(viewer, textvariable=filter_stringvar)
+    filter_button = tk.Button(viewer, text="Apply Filter", command=lambda x = tree: update_filteredview(x))
+
+    # add everything to grid
+    filter_type.grid(row=0, column=0, sticky='w')
+    filter_column.grid(row=0, column=1, sticky='w')
+    filter.grid(row=0, column=2, sticky='w')
+    filter_button.grid(row=0, column=3, sticky='w')
+    tree.grid(row=1, columnspan=4, sticky="nsew")
     
     # display column headers
     for col in cols:
@@ -88,13 +142,8 @@ def viewtable():
         tree.heading(col, text=col, anchor='w', command=lambda x = col, y = tree: update_sortedview(x, y))
 
     # populate table with data
-    for index, row in tabledata.iterrows():
+    for index, row in table.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
-
-    # configure scrollbars
-    vertical_scrollbar = ttk.Scrollbar(viewer, orient=tk.VERTICAL, command=tree.yview)
-    tree.configure(yscrollcommand=vertical_scrollbar.set)
-    vertical_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
 # create GUI window
 root = tk.Tk()
