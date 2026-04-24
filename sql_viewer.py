@@ -36,10 +36,7 @@ def gettabledata(database, table):
     return result
 
 # sort column data
-def sort(column):
-    # get table data
-    tabledata = gettabledata(db_stringvar.get(), table_stringvar.get())
-
+def sort(column, table):
     # set direction of sort
     global current_column
     global ascending_sort
@@ -47,14 +44,21 @@ def sort(column):
     current_column = column
 
     # sort data
-    return tabledata.sort_values(column, ascending=ascending_sort)
+    return table.sort_values(column, ascending=ascending_sort)
 
 # update the view based on sorted column data
 def update_sortedview(column, tree):
-    sorted = sort(column)
+    old_column = current_column
+    table = gettabledata(db_stringvar.get(), table_stringvar.get())
+    sorted = sort(column, table)
 
     # clear current treeview
     tree.delete(*tree.get_children())
+
+    # replace column headers
+    if old_column is not None:
+        tree.heading(old_column, text=old_column, anchor='w', command=lambda x = old_column, y = tree: update_sortedview(x, y))
+    tree.heading(column, text="↑ {0} ↑".format(column) if ascending_sort else "↓ {0} ↓".format(column), anchor='w', command=lambda x = column, y = tree: update_sortedview(x, y))
 
     # replace treeview data
     for index, row in sorted.iterrows():

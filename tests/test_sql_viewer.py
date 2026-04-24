@@ -36,7 +36,7 @@ class Test_GetSQLDatabase(unittest.TestCase):
         data['Date'] = pd.to_datetime(data['Date'])
         for header in data.columns:
             for index in range(len(data[header])):
-                self.assertTrue(data[header][index] == self.df[header][index])
+                self.assertEqual(data[header][index], self.df[header][index])
 
     # clearing databases for tests
     @classmethod
@@ -56,17 +56,31 @@ class Test_SortingData(unittest.TestCase):
             "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812, 3214.23432]
         }
         cls.df = pd.DataFrame(cls.data)
-        cls.df['Date'] = pd.to_datetime(cls.df['Date'])
-        cls.headers = {"Integer": "INTEGER", "Text": "TEXT", "Date": "DATETIME", "Boolean": "BOOLEAN", "Decimal": "FLOAT"}
+        cls.expected_ascending_df = cls.df.sort_values("Integer", ascending=True)
+        cls.expected_ascending_decimal_df = cls.df.sort_values("Decimal", ascending=True)
+        cls.expected_descending_df = cls.df.sort_values("Integer", ascending=False)
 
-        cls.connection = sqlite3.connect("databases/test.db")
-        cls.df.to_sql("Testing123", cls.connection, if_exists="replace", index=False, dtype=cls.headers)
+    # test flipping from ascending to descending back to ascending
+    def test_flipSorting(self):
+        actual_ascending = sql_viewer.sort("Integer", self.df)
+        actual_descending = sql_viewer.sort("Integer", self.df)
+        actual_reascending = sql_viewer.sort("Integer", self.df)
+        for header in actual_ascending.columns:
+            for index in range(len(actual_ascending[header])):
+                self.assertEqual(self.expected_ascending_df[header][index], actual_ascending[header][index])
+                self.assertEqual(self.expected_descending_df[header][index], actual_descending[header][index])
+                self.assertEqual(self.expected_ascending_df[header][index], actual_reascending[header][index])
 
-    # clearing databases for tests
-    @classmethod
-    def tearDownClass(cls):
-        cls.connection.execute("DROP TABLE IF EXISTS Testing123")
-        cls.connection.close()
+    # test not flipping from ascending to sorting by a different column back to ascending
+    def test_notFlippingSorting(self):
+        actual_ascending = sql_viewer.sort("Integer", self.df)
+        actual_different = sql_viewer.sort("Decimal", self.df)
+        actual_reascending = sql_viewer.sort("Integer", self.df)
+        for header in actual_ascending.columns:
+            for index in range(len(actual_ascending[header])):
+                self.assertEqual(self.expected_ascending_df[header][index], actual_ascending[header][index])
+                self.assertEqual(self.expected_ascending_decimal_df[header][index], actual_different[header][index])
+                self.assertEqual(self.expected_ascending_df[header][index], actual_reascending[header][index])
 
 if __name__ == "__main__":
     unittest.main()
