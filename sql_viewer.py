@@ -67,20 +67,33 @@ def update_sortedview(column, tree):
         tree.insert("", tk.END, text=index, values=list(row))
 
 # filter a table and return the dataframe
-def filter_table(exclude, column, value, df):
-    return df[df[column].astype(str) != value] if exclude else df[df[column].astype(str) == value]
+def filter_table(operation, column, value, df):
+    if operation == "Exclude":
+        return df[~df[column].astype(str).str.contains(value)]
+    elif operation == "Include":
+        return df[df[column].astype(str).str.contains(value)]
+    elif operation == "Greater":
+        return df[df[column].astype(float) > value.astype(float)]
+    elif operation == "Lesser":
+        return df[df[column].astype(float) < value.astype(float)]
+    elif operation == "Equal":
+        return df[df[column].astype(str) == value]
+    elif operation == "Not Equal":
+        return df[df[column].astype(str) != value]
+    else:
+        return df
 
 # update the view based on filtered data
 def update_filteredview(tree):
     # get whether this is an inclusion or exclusion filter
-    exclude = True if (filtertype_stringvar.get() == "Exclude") else False
+    operation = filtertype_stringvar.get()
     column = filtercol_stringvar.get()
     value = filter_stringvar.get()
 
     # get current table data, set up filter, and filter table
     global table
     table = gettabledata(db_stringvar.get(), table_stringvar.get())
-    table = filter_table(exclude, column, value, table)
+    table = filter_table(operation, column, value, table)
 
     # clear current treeview
     tree.delete(*tree.get_children())
@@ -124,7 +137,7 @@ def viewtable():
     filtertype_stringvar = tk.StringVar()
     filtercol_stringvar = tk.StringVar()
     filter_stringvar = tk.StringVar()
-    filter_type = tk.OptionMenu(viewer, filtertype_stringvar, None, *["Only Include", "Exclude"])
+    filter_type = tk.OptionMenu(viewer, filtertype_stringvar, None, *["Include", "Exclude", "Greater", "Lesser", "Equal", "Not Equal"])
     filter_column = tk.OptionMenu(viewer, filtercol_stringvar, None, *cols)
     filter = tk.Entry(viewer, textvariable=filter_stringvar)
     filter_button = tk.Button(viewer, text="Apply Filter", command=lambda x = tree: update_filteredview(x))
