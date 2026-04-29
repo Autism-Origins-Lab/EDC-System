@@ -106,5 +106,41 @@ class Test_FilteringData(unittest.TestCase):
         actual_list = sql_viewer.filter_table("Exclude", "Text", "ksd", self.df)["Integer"].to_list()
         self.assertEqual(expected_list, actual_list)
 
+    # test greater than
+    def test_greater(self):
+        expected_list = [54235, 3432, 2910, 934820, 593, 48239, 95483]
+        actual_list = sql_viewer.filter_table("Greater", "Decimal", "1000", self.df)["Integer"].to_list()
+        self.assertEqual(expected_list, actual_list)
+    
+    # test lesser than
+    def test_lesser(self):
+        expected_list = [23423, 327489, 37284, 392048, 3498, 32984, 498320, 39428, 34982, 23948]
+        actual_list = sql_viewer.filter_table("Lesser", "Decimal", "1000", self.df)["Integer"].to_list()
+        self.assertEqual(expected_list, actual_list)
+    
+    # test equality
+    def test_equal(self):
+        expected_list = [23423, 327489, 37284, 2910, 934820, 48239, 34982, 95483]
+        actual_list = sql_viewer.filter_table("Equal", "Boolean", "True", self.df)["Integer"].to_list()
+        self.assertEqual(expected_list, actual_list)
+
+    # test inequality
+    def test_not(self):
+        expected_list = [23423, 327489, 37284, 2910, 934820, 48239, 34982, 95483]
+        actual_list = sql_viewer.filter_table("Not", "Boolean", "False", self.df)["Integer"].to_list()
+        self.assertEqual(expected_list, actual_list)
+    
+    # test before
+    def test_before(self):
+        expected_list = [23423, 54235, 327489, 37284, 392048, 934820, 593, 48239, 498320, 23948]
+        actual_list = sql_viewer.filter_table("Before", "Date", "6/30/26", self.df)["Integer"].to_list()
+        self.assertEqual(expected_list, actual_list)
+
+    # test after
+    def test_after(self):
+        expected_list = [3432, 2910, 3498, 32984, 39428, 34982, 95483]
+        actual_list = sql_viewer.filter_table("After", "Date", "6/30/26", self.df)["Integer"].to_list()
+        self.assertEqual(expected_list, actual_list)
+
 if __name__ == "__main__":
     unittest.main()

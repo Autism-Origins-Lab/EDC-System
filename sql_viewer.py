@@ -73,13 +73,17 @@ def filter_table(operation, column, value, df):
     elif operation == "Include":
         return df[df[column].astype(str).str.contains(value)]
     elif operation == "Greater":
-        return df[df[column].astype(float) > value.astype(float)]
+        return df[df[column].astype(float) > float(value)]
     elif operation == "Lesser":
-        return df[df[column].astype(float) < value.astype(float)]
+        return df[df[column].astype(float) < float(value)]
     elif operation == "Equal":
         return df[df[column].astype(str) == value]
-    elif operation == "Not Equal":
+    elif operation == "Not":
         return df[df[column].astype(str) != value]
+    elif operation == "Before":
+        return df[pd.to_datetime(df[column]) < pd.to_datetime(value)]
+    elif operation == "After":
+        return df[pd.to_datetime(df[column]) > pd.to_datetime(value)]
     else:
         return df
 
@@ -137,7 +141,7 @@ def viewtable():
     filtertype_stringvar = tk.StringVar()
     filtercol_stringvar = tk.StringVar()
     filter_stringvar = tk.StringVar()
-    filter_type = tk.OptionMenu(viewer, filtertype_stringvar, None, *["Include", "Exclude", "Greater", "Lesser", "Equal", "Not Equal"])
+    filter_type = tk.OptionMenu(viewer, filtertype_stringvar, None, *["Include", "Exclude", "Greater", "Lesser", "Equal", "Not", "Before", "After"])
     filter_column = tk.OptionMenu(viewer, filtercol_stringvar, None, *cols)
     filter = tk.Entry(viewer, textvariable=filter_stringvar)
     filter_button = tk.Button(viewer, text="Apply Filter", command=lambda x = tree: update_filteredview(x))
