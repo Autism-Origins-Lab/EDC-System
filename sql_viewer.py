@@ -65,6 +65,7 @@ def update_sortedview(column, tree):
     # replace treeview data
     for index, row in sorted.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
+        tree.bind("<Double-1>", lambda event, x=tree: view_individual_entry(event, tree))
 
 # filter a table and return the dataframe
 def filter_table(operation, column, value, df):
@@ -111,6 +112,7 @@ def update_filteredview(tree):
     # replace treeview data
     for index, row in table.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
+        tree.bind("<Double-1>", lambda event, x=tree: view_individual_entry(event, tree))
 
 # reset viewer
 def reset_view(tree):
@@ -130,6 +132,24 @@ def reset_view(tree):
     # replace treeview data
     for index, row in table.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
+        tree.bind("<Double-1>", lambda event, x=tree: view_individual_entry(event, tree))
+
+# create new window for viewing individual data entries
+def view_individual_entry(event, tree):
+    # get the index of the row clicked on
+    item = tree.identify('item', event.x, event.y)
+    index = tree.item(item, "text")
+
+    # create the new window
+    single_viewer = tk.Toplevel(viewer)
+    single_viewer.title("Entry {0}".format(index + 1))
+    single_viewer.minsize(300, 200)
+
+    data = gettabledata(db_stringvar.get(), table_stringvar.get()).iloc[index]
+    
+    for i, value in data.items():
+        label = tk.Label(single_viewer, text="{0}: {1}".format(i, value), justify="left")
+        label.pack(anchor="w")
 
 # view table
 def viewtable():
@@ -141,11 +161,12 @@ def viewtable():
     table = gettabledata(db_stringvar.get(), table_stringvar.get())
 
     # view table
+    global viewer
     viewer = tk.Tk()
     viewer.minsize(400, 300)
     viewer.title("{0} - {1}".format(table_stringvar.get(), db_stringvar.get()))
     viewer.rowconfigure(1, weight=1)
-    viewer.columnconfigure(3, weight=1)
+    viewer.columnconfigure(4, weight=1)
 
     # set up columns
     cols = list(table.columns)
@@ -182,6 +203,7 @@ def viewtable():
     # populate table with data
     for index, row in table.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
+        tree.bind("<Double-1>", lambda event, x=tree: view_individual_entry(event, tree))
 
 # create GUI window
 root = tk.Tk()
