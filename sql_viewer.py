@@ -112,6 +112,25 @@ def update_filteredview(tree):
     for index, row in table.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
 
+# reset viewer
+def reset_view(tree):
+    # get current table data, set up filter, and filter table
+    global table
+    table = gettabledata(db_stringvar.get(), table_stringvar.get())
+
+    # clear current treeview
+    tree.delete(*tree.get_children())
+
+    # replace column headers
+    global current_column
+    if current_column is not None:
+        tree.heading(current_column, text=current_column, anchor='w', command=lambda x = current_column, y = tree: update_sortedview(x, y))
+    current_column = None
+
+    # replace treeview data
+    for index, row in table.iterrows():
+        tree.insert("", tk.END, text=index, values=list(row))
+
 # view table
 def viewtable():
     print("viewing table {0} from {1}".format(table_stringvar.get(), db_stringvar.get()))
@@ -145,13 +164,15 @@ def viewtable():
     filter_column = tk.OptionMenu(viewer, filtercol_stringvar, None, *cols)
     filter = tk.Entry(viewer, textvariable=filter_stringvar)
     filter_button = tk.Button(viewer, text="Apply Filter", command=lambda x = tree: update_filteredview(x))
+    reset_button = tk.Button(viewer, text="Reset Filter", command=lambda x = tree: reset_view(x))
 
     # add everything to grid
     filter_type.grid(row=0, column=0, sticky='w')
     filter_column.grid(row=0, column=1, sticky='w')
     filter.grid(row=0, column=2, sticky='w')
     filter_button.grid(row=0, column=3, sticky='w')
-    tree.grid(row=1, columnspan=4, sticky="nsew")
+    reset_button.grid(row=0, column=4, sticky='w')
+    tree.grid(row=1, columnspan=5, sticky="nsew")
     
     # display column headers
     for col in cols:
