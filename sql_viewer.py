@@ -3,6 +3,7 @@ import tkinter as tk
 import sqlite3
 import os
 from tkinter import ttk
+from tkinter import messagebox
 
 # store current metric sorted by
 current_column = None
@@ -140,16 +141,49 @@ def view_individual_entry(event, tree):
     item = tree.identify('item', event.x, event.y)
     index = tree.item(item, "text")
 
+    # catches case of double clicking on header
+    if type(index) is not int:
+        return
+
     # create the new window
     single_viewer = tk.Toplevel(viewer)
     single_viewer.title("Entry {0}".format(index + 1))
     single_viewer.minsize(300, 200)
 
+    # populate new window
     data = gettabledata(db_stringvar.get(), table_stringvar.get()).iloc[index]
-    
     for i, value in data.items():
         label = tk.Label(single_viewer, text="{0}: {1}".format(i, value), justify="left")
         label.pack(anchor="w")
+
+# delete an individual data entry
+def delete_entry(databasename, tablename, index):
+    # only drop the row where all the column values equal the data of that row
+    condition = ""
+    for column in table.columns:
+        condition += "{0} = '{1}' AND ".format(column, table.loc[index, column])
+    condition = condition[:-5]
+
+    # create a new connection to the sqlite database & delete the entry from the table
+    connection = sqlite3.connect("databases/{0}.db".format(databasename))
+    result = connection.execute("DELETE FROM {0} WHERE {1}".format(tablename, condition))
+    connection.commit()
+    connection.close()
+
+    # drop from the currently displayed table the current value
+    table.drop(index, inplace=True)
+
+# create window to verify deleting an individual data entry
+def delete_individual_entry(event, tree):
+    # get the index of the row clicked on
+    item = tree.selection()
+    index = tree.item(item[0], "text")
+
+    # create the new window
+    delete = messagebox.askokcancel("Verify Deletion", "Are you sure you want to delete item {0}?".format(index + 1))
+    if delete:
+        tree.delete(item[0])
+        delete_entry(db_stringvar.get(), table_stringvar.get(), index)
 
 # view table
 def viewtable():
@@ -204,6 +238,8 @@ def viewtable():
     for index, row in table.iterrows():
         tree.insert("", tk.END, text=index, values=list(row))
         tree.bind("<Double-1>", lambda event, x=tree: view_individual_entry(event, tree))
+
+    tree.bind("<BackSpace>", lambda event, x=tree: delete_individual_entry(event, tree))
 
 # create GUI window
 root = tk.Tk()

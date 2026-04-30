@@ -142,5 +142,74 @@ class Test_FilteringData(unittest.TestCase):
         actual_list = sql_viewer.filter_table("After", "Date", "6/30/26", self.df)["Integer"].to_list()
         self.assertEqual(expected_list, actual_list)
 
+class Test_DeleteData(unittest.TestCase):
+    # setup for all tests
+    @classmethod
+    def setUpClass(cls):
+        cls.data = {
+            "Integer": [23423, 54235, 3432, 327489, 37284, 2910, 392048, 934820, 3498, 32984, 593, 48239, 498320, 39428, 34982, 23948, 95483],
+            "Text": ["kajfklsd", "kdsfjk", "skdjfkl", "ksdfjldsa", "klsdjfk", "ksdjfl", "sjaflk", "skjdfla", "ksldjfklas", "kdjsfk", "dsjfkcx", "dkfjlx", "dkjflksw", "sdkjflw", "xcjvlk", "wejrlwk", "dskjfk"],
+            "Date": ["4/2/26", "5/23/26", "12/4/26", "1/23/26", "5/24/26", "9/3/26", "2/3/26", "5/9/26", "9/21/26", "10/4/26", "1/19/26", "3/4/26", "5/12/26", "9/23/26", "8/27/26", "5/19/26", "11/18/26"],
+            "Boolean": [True, False, False, True, True, True, False, True, False, False, False, True, False, False, True, False, True],
+            "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812, 3214.23432]
+        }
+        cls.df = pd.DataFrame(cls.data)
+        cls.df['Date'] = pd.to_datetime(cls.df['Date'])
+        cls.headers = {"Integer": "INTEGER", "Text": "TEXT", "Date": "DATETIME", "Boolean": "BOOLEAN", "Decimal": "FLOAT"}
+
+        cls.connection = sqlite3.connect("databases/test.db")
+        cls.df.to_sql("Testing123", cls.connection, if_exists="replace", index=False, dtype=cls.headers)
+
+    # test deletion
+    def test_delete(self):
+        expected_data = {
+            "Integer": [23423, 54235, 3432, 327489, 37284, 2910, 392048, 934820, 3498, 32984, 593, 48239, 498320, 39428, 34982, 23948],
+            "Text": ["kajfklsd", "kdsfjk", "skdjfkl", "ksdfjldsa", "klsdjfk", "ksdjfl", "sjaflk", "skjdfla", "ksldjfklas", "kdjsfk", "dsjfkcx", "dkfjlx", "dkjflksw", "sdkjflw", "xcjvlk", "wejrlwk"],
+            "Date": ["4/2/26", "5/23/26", "12/4/26", "1/23/26", "5/24/26", "9/3/26", "2/3/26", "5/9/26", "9/21/26", "10/4/26", "1/19/26", "3/4/26", "5/12/26", "9/23/26", "8/27/26", "5/19/26"],
+            "Boolean": [True, False, False, True, True, True, False, True, False, False, False, True, False, False, True, False],
+            "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812]
+        }
+        expected_df = pd.DataFrame(expected_data)
+        expected_df['Date'] = pd.to_datetime(expected_df['Date'])
+
+        sql_viewer.table = self.df
+        sql_viewer.delete_entry("test", "Testing123", 16)
+
+        for header in expected_df.columns:
+            for index in range(len(expected_df[header])):
+                self.assertEqual(expected_df[header][index], sql_viewer.table[header][index])
+        
+        result = self.connection.execute("SELECT Integer FROM Testing123")
+        intlist = result.fetchall()
+        intlist = [x[0] for x in intlist]
+        self.assertEqual(intlist, expected_df["Integer"])
+
+        result = self.connection.execute("SELECT Text FROM Testing123")
+        stringlist = result.fetchall()
+        stringlist = [x[0] for x in stringlist]
+        self.assertEqual(stringlist, expected_df["Text"])
+
+        result = self.connection.execute("SELECT Date FROM Testing123")
+        datetimelist = result.fetchall()
+        datetimelist = [x[0] for x in datetimelist]
+        actualdatelist = [str(pd.to_datetime(x)) for x in expected_df["Date"]]
+        self.assertEqual(datetimelist, actualdatelist)
+
+        result = self.connection.execute("SELECT Boolean FROM Testing123")
+        booleanlist = result.fetchall()
+        booleanlist = [x[0] for x in booleanlist]
+        self.assertEqual(booleanlist, expected_df["Boolean"])
+
+        result = self.connection.execute("SELECT Decimal FROM Testing123")
+        floatlist = result.fetchall()
+        floatlist = [x[0] for x in floatlist]
+        self.assertEqual(floatlist, expected_df["Decimal"])
+    
+    # clearing databases for tests
+    @classmethod
+    def tearDownClass(cls):
+        cls.connection.execute("DROP TABLE IF EXISTS Testing123")
+        cls.connection.close()
+
 if __name__ == "__main__":
     unittest.main()
