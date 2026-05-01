@@ -14,7 +14,7 @@ class Test_GetSQLDatabase(unittest.TestCase):
             "Integer": [23423, 54235, 3432, 327489, 37284, 2910, 392048, 934820, 3498, 32984, 593, 48239, 498320, 39428, 34982, 23948, 95483],
             "Text": ["kajfklsd", "kdsfjk", "skdjfkl", "ksdfjldsa", "klsdjfk", "ksdjfl", "sjaflk", "skjdfla", "ksldjfklas", "kdjsfk", "dsjfkcx", "dkfjlx", "dkjflksw", "sdkjflw", "xcjvlk", "wejrlwk", "dskjfk"],
             "Date": ["4/2/26", "5/23/26", "12/4/26", "1/23/26", "5/24/26", "9/3/26", "2/3/26", "5/9/26", "9/21/26", "10/4/26", "1/19/26", "3/4/26", "5/12/26", "9/23/26", "8/27/26", "5/19/26", "11/18/26"],
-            "Boolean": [True, False, False, True, True, True, False, True, False, False, False, True, False, False, True, False, True],
+            "Boolean": [1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1],
             "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812, 3214.23432]
         }
         cls.df = pd.DataFrame(cls.data)
@@ -22,7 +22,7 @@ class Test_GetSQLDatabase(unittest.TestCase):
         cls.headers = {"Integer": "INTEGER", "Text": "TEXT", "Date": "DATETIME", "Boolean": "BOOLEAN", "Decimal": "FLOAT"}
 
         cls.connection = sqlite3.connect("databases/test.db")
-        cls.df.to_sql("Testing123", cls.connection, if_exists="replace", index=False, dtype=cls.headers)
+        cls.df.to_sql("Testing123", cls.connection, if_exists="replace", index=0, dtype=cls.headers)
 
     # test getting a list of tables from a database
     def test_gettables(self):
@@ -51,13 +51,13 @@ class Test_SortingData(unittest.TestCase):
             "Integer": [23423, 54235, 3432, 327489, 37284, 2910, 392048, 934820, 3498, 32984, 593, 48239, 498320, 39428, 34982, 23948, 95483],
             "Text": ["kajfklsd", "kdsfjk", "skdjfkl", "ksdfjldsa", "klsdjfk", "ksdjfl", "sjaflk", "skjdfla", "ksldjfklas", "kdjsfk", "dsjfkcx", "dkfjlx", "dkjflksw", "sdkjflw", "xcjvlk", "wejrlwk", "dskjfk"],
             "Date": ["4/2/26", "5/23/26", "12/4/26", "1/23/26", "5/24/26", "9/3/26", "2/3/26", "5/9/26", "9/21/26", "10/4/26", "1/19/26", "3/4/26", "5/12/26", "9/23/26", "8/27/26", "5/19/26", "11/18/26"],
-            "Boolean": [True, False, False, True, True, True, False, True, False, False, False, True, False, False, True, False, True],
+            "Boolean": [1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1],
             "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812, 3214.23432]
         }
         cls.df = pd.DataFrame(cls.data)
-        cls.expected_ascending_df = cls.df.sort_values("Integer", ascending=True)
-        cls.expected_ascending_decimal_df = cls.df.sort_values("Decimal", ascending=True)
-        cls.expected_descending_df = cls.df.sort_values("Integer", ascending=False)
+        cls.expected_ascending_df = cls.df.sort_values("Integer", ascending=1)
+        cls.expected_ascending_decimal_df = cls.df.sort_values("Decimal", ascending=1)
+        cls.expected_descending_df = cls.df.sort_values("Integer", ascending=0)
 
     # test flipping from ascending to descending back to ascending
     def test_flipSorting(self):
@@ -89,7 +89,7 @@ class Test_FilteringData(unittest.TestCase):
             "Integer": [23423, 54235, 3432, 327489, 37284, 2910, 392048, 934820, 3498, 32984, 593, 48239, 498320, 39428, 34982, 23948, 95483],
             "Text": ["kajfklsd", "kdsfjk", "skdjfkl", "ksdfjldsa", "klsdjfk", "ksdjfl", "sjaflk", "skjdfla", "ksldjfklas", "kdjsfk", "dsjfkcx", "dkfjlx", "dkjflksw", "sdkjflw", "xcjvlk", "wejrlwk", "dskjfk"],
             "Date": ["4/2/26", "5/23/26", "12/4/26", "1/23/26", "5/24/26", "9/3/26", "2/3/26", "5/9/26", "9/21/26", "10/4/26", "1/19/26", "3/4/26", "5/12/26", "9/23/26", "8/27/26", "5/19/26", "11/18/26"],
-            "Boolean": [True, False, False, True, True, True, False, True, False, False, False, True, False, False, True, False, True],
+            "Boolean": [1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1],
             "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812, 3214.23432]
         }
         cls.df = pd.DataFrame(cls.data)
@@ -121,13 +121,13 @@ class Test_FilteringData(unittest.TestCase):
     # test equality
     def test_equal(self):
         expected_list = [23423, 327489, 37284, 2910, 934820, 48239, 34982, 95483]
-        actual_list = sql_viewer.filter_table("Equal", "Boolean", "True", self.df)["Integer"].to_list()
+        actual_list = sql_viewer.filter_table("Equal", "Boolean", "1", self.df)["Integer"].to_list()
         self.assertEqual(expected_list, actual_list)
 
     # test inequality
     def test_not(self):
         expected_list = [23423, 327489, 37284, 2910, 934820, 48239, 34982, 95483]
-        actual_list = sql_viewer.filter_table("Not", "Boolean", "False", self.df)["Integer"].to_list()
+        actual_list = sql_viewer.filter_table("Not", "Boolean", "0", self.df)["Integer"].to_list()
         self.assertEqual(expected_list, actual_list)
     
     # test before
@@ -150,7 +150,7 @@ class Test_DeleteData(unittest.TestCase):
             "Integer": [23423, 54235, 3432, 327489, 37284, 2910, 392048, 934820, 3498, 32984, 593, 48239, 498320, 39428, 34982, 23948, 95483],
             "Text": ["kajfklsd", "kdsfjk", "skdjfkl", "ksdfjldsa", "klsdjfk", "ksdjfl", "sjaflk", "skjdfla", "ksldjfklas", "kdjsfk", "dsjfkcx", "dkfjlx", "dkjflksw", "sdkjflw", "xcjvlk", "wejrlwk", "dskjfk"],
             "Date": ["4/2/26", "5/23/26", "12/4/26", "1/23/26", "5/24/26", "9/3/26", "2/3/26", "5/9/26", "9/21/26", "10/4/26", "1/19/26", "3/4/26", "5/12/26", "9/23/26", "8/27/26", "5/19/26", "11/18/26"],
-            "Boolean": [True, False, False, True, True, True, False, True, False, False, False, True, False, False, True, False, True],
+            "Boolean": [1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1],
             "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812, 3214.23432]
         }
         cls.df = pd.DataFrame(cls.data)
@@ -158,7 +158,7 @@ class Test_DeleteData(unittest.TestCase):
         cls.headers = {"Integer": "INTEGER", "Text": "TEXT", "Date": "DATETIME", "Boolean": "BOOLEAN", "Decimal": "FLOAT"}
 
         cls.connection = sqlite3.connect("databases/test.db")
-        cls.df.to_sql("Testing123", cls.connection, if_exists="replace", index=False, dtype=cls.headers)
+        cls.df.to_sql("Testing123", cls.connection, if_exists="replace", index=0, dtype=cls.headers)
 
     # test deletion
     def test_delete(self):
@@ -166,7 +166,7 @@ class Test_DeleteData(unittest.TestCase):
             "Integer": [23423, 54235, 3432, 327489, 37284, 2910, 392048, 934820, 3498, 32984, 593, 48239, 498320, 39428, 34982, 23948],
             "Text": ["kajfklsd", "kdsfjk", "skdjfkl", "ksdfjldsa", "klsdjfk", "ksdjfl", "sjaflk", "skjdfla", "ksldjfklas", "kdjsfk", "dsjfkcx", "dkfjlx", "dkjflksw", "sdkjflw", "xcjvlk", "wejrlwk"],
             "Date": ["4/2/26", "5/23/26", "12/4/26", "1/23/26", "5/24/26", "9/3/26", "2/3/26", "5/9/26", "9/21/26", "10/4/26", "1/19/26", "3/4/26", "5/12/26", "9/23/26", "8/27/26", "5/19/26"],
-            "Boolean": [True, False, False, True, True, True, False, True, False, False, False, True, False, False, True, False],
+            "Boolean": [1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],
             "Decimal": [234.5231, 57238.3284, 4327.234, 51.234, 5.1234124, 723589.213478, 58.13844, 583218.324, 85.389124, 9.2314, 3932.32941, 4932.392, 931.32491, 493.24913, 439.23491, 0.34812]
         }
         expected_df = pd.DataFrame(expected_data)
@@ -175,35 +175,40 @@ class Test_DeleteData(unittest.TestCase):
         sql_viewer.table = self.df
         sql_viewer.delete_entry("test", "Testing123", 16)
 
-        for header in expected_df.columns:
-            for index in range(len(expected_df[header])):
+        for header in sql_viewer.table.columns:
+            for index in range(len(sql_viewer.table[header])):
                 self.assertEqual(expected_df[header][index], sql_viewer.table[header][index])
-        
+
         result = self.connection.execute("SELECT Integer FROM Testing123")
         intlist = result.fetchall()
         intlist = [x[0] for x in intlist]
-        self.assertEqual(intlist, expected_df["Integer"])
+        for i in range(len(intlist)):
+            self.assertEqual(intlist[i], expected_df.loc[i, "Integer"])
 
         result = self.connection.execute("SELECT Text FROM Testing123")
         stringlist = result.fetchall()
         stringlist = [x[0] for x in stringlist]
-        self.assertEqual(stringlist, expected_df["Text"])
+        for i in range(len(stringlist)):
+            self.assertEqual(stringlist[i], expected_df.loc[i, "Text"])
 
         result = self.connection.execute("SELECT Date FROM Testing123")
         datetimelist = result.fetchall()
         datetimelist = [x[0] for x in datetimelist]
         actualdatelist = [str(pd.to_datetime(x)) for x in expected_df["Date"]]
-        self.assertEqual(datetimelist, actualdatelist)
+        for i in range(len(datetimelist)):
+            self.assertEqual(datetimelist[i], actualdatelist[i])
 
         result = self.connection.execute("SELECT Boolean FROM Testing123")
         booleanlist = result.fetchall()
         booleanlist = [x[0] for x in booleanlist]
-        self.assertEqual(booleanlist, expected_df["Boolean"])
+        for i in range(len(booleanlist)):
+            self.assertEqual(booleanlist[i], expected_df.loc[i, "Boolean"])
 
         result = self.connection.execute("SELECT Decimal FROM Testing123")
         floatlist = result.fetchall()
         floatlist = [x[0] for x in floatlist]
-        self.assertEqual(floatlist, expected_df["Decimal"])
+        for i in range(len(booleanlist)):
+            self.assertEqual(floatlist[i], expected_df.loc[i, "Decimal"])
     
     # clearing databases for tests
     @classmethod
