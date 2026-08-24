@@ -1,0 +1,177 @@
+import tkinter as tk
+import sqlite3
+import os
+from tkinter import ttk, messagebox
+
+root = tk.Tk()
+root.title("Medical History")
+root.geometry("500x750")
+
+outer_container = tk.Frame(root)
+outer_container.pack(fill="both", expand=True)
+
+canvas = tk.Canvas(outer_container, highlightthickness=0, bd=0, bg=root.cget("bg"))
+v_scrollbar = tk.Scrollbar(outer_container, orient="vertical", command=canvas.yview)
+h_scrollbar = tk.Scrollbar(outer_container, orient="horizontal", command=canvas.xview)
+
+main_frame = tk.Frame(canvas, padx=20, pady=20)
+main_frame.pack(fill="both", expand=True)
+main_frame.bind(
+    "<Configure>",
+    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+)
+
+canvas_window = canvas.create_window((0, 0), window=main_frame, anchor="nw")
+canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+v_scrollbar.pack(side="right", fill="y")
+h_scrollbar.pack(side="bottom", fill="x")
+canvas.pack(side="left", fill="both", expand=True)
+
+def save_form():
+    os.makedirs("databases", exist_ok=True)
+
+    conn = sqlite3.connect("databases/patient_data.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS patients(
+            medicalhistory_var TEXT,
+            seen_neurologist INTEGER,
+            neurologist_description TEXT,
+            head_injury INTEGER,
+            head_injury_description TEXT,
+            head_injury_consciousness INTEGER,
+            head_injury_confusion INTEGER,
+            head_injury_hospitalization INTEGER,
+            genetic_abnormalities INTEGER,
+            genetic_abnormalities_description TEXT,
+            seizure_epilepticattack INTEGER,
+            baby_born_on_time INTEGER,
+            baby_born_early_late TEXT,
+            baby_born_on_time_weeks TEXT,
+            gestational_age TEXT,
+            birthweight TEXT,
+            birthlength TEXT,
+            complication_pregnancy INTEGER,
+            complication_pregnancy_description TEXT,     
+       )                     
+    """)
+
+    conn.commit()
+    conn.close()
+
+# -----------------------------
+# Variables
+# -----------------------------
+
+medicalhistory_var = tk.StringVar()
+seen_neurologist = tk.BooleanVar()
+neurologist_description = tk.StringVar()
+head_injury = tk.BooleanVar()
+head_injury_description = tk.StringVar()
+head_injury_consciousness = tk.BooleanVar()
+head_injury_confusion = tk.BooleanVar()
+head_injury_hospitalization = tk.BooleanVar()
+genetic_abnormalitiies = tk.BooleanVar()
+genetic_abnormalitiies_description = tk.StringVar()
+seizure_epilepticattack = tk.BooleanVar()
+baby_born_on_time = tk.BooleanVar()
+baby_born_early_late = tk.StringVar()
+baby_born_on_time_weeks = tk.StringVar()
+gestational_age = tk.StringVar()
+birthweight = tk.StringVar()
+birthlength = tk.StringVar()
+complication_pregnancy = tk.BooleanVar()
+complication_pregnancy_description = tk.StringVar()
+
+# -----------------------------
+# Form Layout
+# -----------------------------
+
+baby_health_frame = tk.Frame(main_frame)
+baby_health_frame.pack(anchor="w", pady=5)
+tk.Label(baby_health_frame, text="How is your baby's health in general?").pack(anchor="w")
+tk.Entry(baby_health_frame, textvariable=medicalhistory_var, width=40)
+
+baby_neurologist_frame = tk.Frame(main_frame)
+baby_neurologist_frame.pack(anchor="w", pady=5)
+tk.Label(baby_neurologist_frame, text="Has your baby ever seen a neurologist for an accident or illness")
+tk.Radiobutton(baby_neurologist_frame, text="Yes", variable=seen_neurologist, value=True).pack(side="left")
+tk.Radiobutton(baby_neurologist_frame, text="No", variable=seen_neurologist, value=False).pack(side="left")
+tk.Label(baby_neurologist_frame, text="If yes, please describe").pack(anchor="w")
+tk.Entry(baby_neurologist_frame, textvariable=neurologist_description).pack(side="left", padx=(5,0))
+
+head_injury_frame =tk.Frame(main_frame)
+head_injury_frame.pack(anchor="w", pady=5)
+tk.Label(head_injury_frame, text="Has your baby had a head injury?").pack(anchor="w")
+tk.Radiobutton(head_injury_frame, text="Yes", variable=head_injury, value=True).pack(side="left")
+tk.Radiobutton(head_injury_frame, text="No", variable=head_injury, value=False).pack(side="left")
+tk.Label(head_injury_frame, text="If yes, please describe").pack(anchor="w")
+tk.Entry(head_injury_frame, textvariable=head_injury_description).pack(side="left")
+tk.Label(head_injury_frame, text="If yes, were there any complications such as:").pack(anchor="w")
+tk.Label(head_injury_frame, text="Loss of consciousness?").pack(anchor="w")
+tk.Radiobutton(head_injury_frame, variable=head_injury_consciousness, text="Yes", value=True).pack(side="left")
+tk.Radiobutton(head_injury_frame, variable=head_injury_consciousness, text="No", value=False).pack(side="left")
+tk.Label(head_injury_frame, text="Sustained period of confusion?").pack(anchor="w")
+tk.Radiobutton(head_injury_frame, variable=head_injury_confusion, text="Yes", value=True).pack(side="left")
+tk.Radiobutton(head_injury_frame, variable=head_injury_confusion, text="No", value=False).pack(side="left")
+tk.Label(head_injury_frame, text="Hospitalization?").pack(anchor="w")
+tk.Radiobutton(head_injury_frame, text="Yes", variable=head_injury_hospitalization, value=True).pack(side="left")
+tk.Radiobutton(head_injury_frame, text="No", variable=head_injury_hospitalization, value=False).pack(side="left")
+
+genetic_abnormalitiies_frame =tk.Frame(main_frame)
+genetic_abnormalitiies_frame.pack(anchor="w", pady=5)
+tk.Label(genetic_abnormalitiies_frame, text="Have you been told if your baby has any genetic abnormalities").pack(anchor="w")
+tk.Label(genetic_abnormalitiies_frame, text="such as Fragile X or Down Syndrome?").pack(anchor="w")
+tk.Radiobutton(genetic_abnormalitiies_frame, text="Yes", variable=genetic_abnormalitiies, value=True).pack(side="left")
+tk.Radiobutton(genetic_abnormalitiies_frame, text="No", variable=genetic_abnormalitiies, value=False).pack(side="left")
+tk.Label(genetic_abnormalitiies_frame, text="If yes, please describe:").pack(anchor="w")
+tk.Entry(genetic_abnormalitiies_frame, textvariable=genetic_abnormalitiies_description).pack(side="left")
+
+epileptic_frame = tk.Frame(main_frame)
+epileptic_frame.pack(anchor="w", pady=5)
+tk.Label(epileptic_frame, text="Has your baby had a seizure or epileptic attack?").pack(anchor="w")
+tk.Radiobutton(epileptic_frame, text="Yes", variable=seizure_epilepticattack, value=True).pack(side="left")
+tk.Radiobutton(epileptic_frame, text="No", variable=seizure_epilepticattack, value=False).pack(side="left")
+
+baby_frame = tk.Frame(main_frame)
+baby_frame.pack(anchor="w", pady=5)
+tk.Label(baby_frame, text="Was your baby born on time?").pack(anchor="w")
+tk.Radiobutton(baby_frame, text="Yes", variable=baby_born_on_time, value=True).pack(side="left")
+tk.Radiobutton(baby_frame, text="No", variable=baby_born_on_time, value=False).pack(side="left")
+tk.Label(baby_frame, text="If no, were you early or late?").pack(anchor="w")
+tk.Radiobutton(baby_frame, text="Early", variable=baby_born_on_time, value="Early").pack(side="left")
+tk.Radiobutton(baby_frame, text="Late", variable=baby_born_on_time, value="Late").pack(side="left")
+tk.Label(baby_frame, text="How many weeks early/late?").pack(anchor="w")
+tk.Entry(baby_frame, textvariable=baby_born_on_time_weeks).pack(side="left")
+
+gestational_frame = tk.Frame(main_frame)
+gestational_frame.pack(anchor="w", pady=5)
+tk.Label(gestational_frame, text="What was the gestational age(weeks)?").pack(anchor="w")
+tk.Entry(gestational_frame, textvariable=gestational_age).pack(side="left")
+
+birth_frame = tk.Frame(main_frame)
+birth_frame.pack(anchor="w", pady=5)
+tk.Label(birth_frame, text="What was the birthweight (pounds/ounces or kilograms/grams)?").pack(anchor="w")
+tk.Entry(birth_frame, textvariable=birthweight).pack(side="left")
+tk.Label(birth_frame, text="What was the birthlength (inches or centimeters)").pack(anchor="w")
+tk.Entry(birth_frame,textvariable=birthlength).pack(side="left")
+
+complication_frame=tk.Frame(main_frame)
+complication_frame.pack(anchor="w", pady=5)
+tk.Label(complication_frame, text="Were there any complications with this pregnancy. or birth?").pack(anchor="w")
+tk.Radiobutton(complication_frame, text="Yes", variable=complication_pregnancy, value=True).pack(side="left")
+tk.Radiobutton(complication_frame, text="No", variable=complication_pregnancy, value=False).pack(side="left")
+tk.Label(complication_frame, text="If yes, please describe:").pack(anchor="w")
+tk.Entry(complication_frame, textvariable=complication_pregnancy_description)
+
+# -----------------------------
+# Save Button
+# -----------------------------
+tk.Button(main_frame, text="Save", command=save_form, bg="green", fg="black",
+          font=("Arial", 12, "bold"), width=20).pack(pady=20)
+
+root.mainloop()
+
+           

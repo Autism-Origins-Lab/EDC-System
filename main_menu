@@ -1,0 +1,75 @@
+import tkinter as tk
+import subprocess
+import sys
+import sqlite3
+from tkinter import ttk, messagebox
+
+root = tk.Tk()
+root.title("Main Menu")
+root.geometry("500x750")
+
+main_frame = tk.Frame(root, padx=20, pady=20)
+main_frame.pack(fill="both", expand=True)
+
+def show_main_menu(event=None):
+    if patient_ID.get().strip() !="" and patient_ID.get().strip().isdigit():
+        patient_ID_frame.pack_forget()
+        main_menu_frame.pack(anchor="center", pady=(0,10))
+    else:
+        messagebox.showinfo("Notice!","You must enter in a number ID!")
+
+def save_form():
+    conn = sqlite3.connect("databases/patient_data.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS patients(
+            patient_ID TEXT
+       )                     
+    """)
+
+    conn.commit()
+    conn.close()
+
+def save_form_show_menu():
+    show_main_menu()
+    save_form()
+
+def open_telephone_screening():
+    subprocess.Popen([sys.executable, "main_form.py"])
+
+def open_screening_questionnaire():
+    subprocess.Popen([sys.executable, "ScreeningQuestionnaire.py"])
+
+def open_medical_history():
+    subprocess.Popen([sys.executable, "MedicalHistory"])
+
+def open_family_medical_history():
+    subprocess.Popen([sys.executable, "FamilyMedicalHistory"])
+
+def open_data_rediter():
+    subprocess.Popen([sys.executable, "datarediter"])
+
+
+patient_ID = tk.StringVar()
+
+main_menu_frame = tk.Frame(main_frame)
+main_menu_frame.pack(expand=True, anchor="center")
+tk.Button(main_menu_frame, text="Telephone Screening", command=open_telephone_screening).pack(expand=True, anchor="center")
+tk.Button(main_menu_frame, text="Screening Questionnaire", command=open_screening_questionnaire).pack(expand=True, anchor="center")
+tk.Button(main_menu_frame, text="Medical History", command=open_medical_history).pack(expand=True,anchor="center")
+tk.Button(main_menu_frame, text="Family Medical History", command=open_family_medical_history).pack(expand=True, anchor="center")
+tk.Button(main_menu_frame, text="Patient Data", command=open_data_rediter).pack(expand=True, anchor="center")
+main_menu_frame.pack_forget()
+
+patient_ID_frame = tk.Frame(main_frame)
+patient_ID_frame.pack(expand=True, anchor="center")
+tk.Label(patient_ID_frame, text="Please enter the patient ID").pack(expand=True, anchor="center")
+entry = tk.Entry(patient_ID_frame, textvariable=patient_ID).pack(expand=True, anchor="center")
+btn = tk.Button(patient_ID_frame, text="Enter", command= save_form_show_menu)
+btn.pack(expand=True, anchor="center", pady=20)
+patient_ID_frame.bind("return", lambda event: btn.invoke())
+
+
+root.mainloop()
+

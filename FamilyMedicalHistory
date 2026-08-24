@@ -1,0 +1,194 @@
+import tkinter as tk
+import sqlite3
+from tkinter import ttk, messagebox
+
+root = tk.Tk()
+root.title("Medical History")
+root.geometry("500x750")
+
+outer_container = tk.Frame(root)
+outer_container.pack(fill="both", expand=True)
+
+canvas = tk.Canvas(outer_container, highlightthickness=0, bd=0, bg=root.cget("bg"))
+v_scrollbar = tk.Scrollbar(outer_container, orient="vertical", command=canvas.yview)
+h_scrollbar = tk.Scrollbar(outer_container, orient="horizontal", command=canvas.xview)
+
+
+main_frame = tk.Frame(canvas, padx=20, pady=20)
+main_frame.pack(fill="both", expand=True)
+main_frame.bind(
+    "<Configure>",
+    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+)
+
+canvas_window = canvas.create_window((0, 0), window=main_frame, anchor="nw")
+canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+
+v_scrollbar.pack(side="right", fill="y")
+h_scrollbar.pack(side="bottom", fill="x")
+canvas.pack(side="left", fill="both", expand=True)
+
+
+def save_form():
+    conn = sqlite3.connect("databases/patient_data.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS patients(
+            family_psychiatric INTEGER,
+            family_psychiatric_description TEXT,
+            father_mother_autism TEXT,
+            father_mother_schizophrenia INTEGER,
+            father_mother_learning_disability INTEGER,
+            substance_abuse INTEGER,
+            siblings INTEGER,
+            sister_brother_autism INTEGER,
+            sister_brother_autism_sibiling TEXT,
+            sister_brother_autism_adopted_description TEXT,
+            sister_brother_autism_more_then_1_description TEXT,
+            sister_brother_adhd INTEGER,
+            sister_brother_adhd_sibling TEXT,
+            sister_brother_adhd_adopted_description TEXT,
+            sister_brother_adhd_more_than_1_description TEXT,
+            same_father_as_older_sibling INTEGER,
+            same_mother_as_older_sibling INTEGER
+       )                     
+    """)
+
+    conn.commit()
+    conn.close()
+
+# -----------------------------
+# Variables
+# -----------------------------
+
+family_psychiatric = tk.BooleanVar()
+family_psychiatric_description = tk.StringVar()
+father_mother_autism = tk.BooleanVar()
+father_mother_schizophrenia = tk.BooleanVar()
+father_mother_learning_disability = tk.BooleanVar()
+substance_abuse = tk.BooleanVar()
+siblings = tk.BooleanVar()
+sister_brother_autism = tk.BooleanVar()
+sister_brother_autism_sibling = tk.StringVar()
+sister_brother_autism_adopted_description = tk.StringVar()
+sister_brother_autism_more_then_1_description = tk.StringVar()
+sister_brother_adhd = tk.BooleanVar()
+sister_brother_adhd_sibling = tk.StringVar()
+sister_brother_adhd_adopted_description = tk.StringVar()
+sister_brother_adhd_more_than_1_description = tk.StringVar()
+same_father_as_older_sibling = tk.BooleanVar()
+same_mother_as_older_sibling = tk.BooleanVar()
+
+# -----------------------------
+# Form Layout
+# -----------------------------
+
+child_relatives_frame = tk.Frame(main_frame)
+child_relatives_frame.pack(anchor="w", pady=5)
+tk.Label(child_relatives_frame, text="Have any of the child's relatives(father,mother,full biological siblings) ever been diagnosed with a psychiatric illness by a mental health professional?").pack(anchor="w")
+tk.Radiobutton(child_relatives_frame, text="Yes", variable=family_psychiatric, value=True).pack(anchor="w")
+tk.Radiobutton(child_relatives_frame, text="No", variable=family_psychiatric, value=False).pack(anchor="w")
+tk.Label(child_relatives_frame, text="If yes, what was the diagnosis and briefly describe illness:").pack(anchor="w")
+tk.Entry(child_relatives_frame, width=40, textvariable=family_psychiatric_description).pack(anchor="w")
+
+autism_frame = tk.Frame(main_frame)
+autism_frame.pack(anchor="w", pady=5)
+tk.Label(autism_frame, text="Either mother or father been diagnosed with an Autism Spectrum Disorder?").pack(anchor="w")
+tk.Radiobutton(autism_frame, text="Yes", variable=father_mother_autism, value=True).pack(side="left")
+tk.Radiobutton(autism_frame, text="No", variable=father_mother_autism, value=False).pack(side="left")
+
+schizophrenia_frame = tk.Frame(main_frame)
+schizophrenia_frame.pack(anchor="w", pady=5)
+tk.Label(schizophrenia_frame, text="Either mother or father been diagnosed with schizophrenia?").pack(anchor="w")
+tk.Radiobutton(schizophrenia_frame, text="Yes", variable=father_mother_schizophrenia, value=True).pack(side="left")
+tk.Radiobutton(schizophrenia_frame, text="No", variable=father_mother_schizophrenia, value=False).pack(side="left")
+
+intellectual_frame = tk.Frame(main_frame)
+intellectual_frame.pack(anchor="w", pady=5)
+tk.Label(intellectual_frame, text="Either mother or father been diagnosed with learning and/or intellectual disability?").pack(anchor="w")
+tk.Radiobutton(intellectual_frame, text="Yes", variable=father_mother_learning_disability, value=True).pack(side="left")
+tk.Radiobutton(intellectual_frame, text="No", variable=father_mother_learning_disability, value=False).pack(side="left")
+
+substance_abuse_frame = tk.Frame(main_frame)
+substance_abuse_frame.pack(anchor="w", pady=5)
+tk.Label(substance_abuse_frame, text="Either mother or father has a history of substance abuse?").pack(anchor="w")
+tk.Radiobutton(substance_abuse_frame, text="Yes", variable=substance_abuse, value=True).pack(side="left")
+tk.Radiobutton(substance_abuse_frame, text="No", variable=substance_abuse, value=False).pack(side="left")
+
+siblings_frame = tk.Frame(main_frame)
+siblings_frame.pack(anchor="w", pady=5)
+tk.Label(siblings_frame, text="Does your child have any siblings?").pack(anchor="w")
+tk.Radiobutton(siblings_frame, text="Yes", variable=siblings, value=True).pack(side="left")
+tk.Radiobutton(siblings_frame, text="No", variable=siblings, value=False).pack(side="left")
+tk.Label(siblings_frame, text="If yes, inquire about the name and age.").pack(anchor="w")
+
+sister_autism_frame = tk.Frame(main_frame)
+sister_autism_frame.pack(anchor="w", pady=5)
+tk.Label(sister_autism_frame, text="Have either sister or brother been diagnosed with an Autism Spectrum Disorder?").pack(anchor="w")
+tk.Radiobutton(sister_autism_frame, text="Yes", variable=sister_brother_autism, value=True).pack(side="left")
+tk.Radiobutton(sister_autism_frame, text="No", variable=sister_brother_autism, value=False).pack(side="left")
+tk.Label(sister_autism_frame, text="Check if:").pack(anchor="w")
+tk.Radiobutton(sister_autism_frame, text="full biological sibling?", variable=sister_brother_autism_sibling, value="full siblings").pack(anchor="w")
+tk.Radiobutton(sister_autism_frame, text="half sibling?", variable=sister_brother_autism_sibling, value="half siblings").pack(anchor="w")
+tk.Radiobutton(sister_autism_frame, text="adopted siblings?", variable=sister_brother_autism_sibling, value="adopted siblings").pack(anchor="w")
+tk.Entry(sister_autism_frame, textvariable=sister_brother_autism_adopted_description).pack(side="left")
+tk.Radiobutton(sister_autism_frame, text="More then 1 siblings with ADHD", variable=sister_brother_autism_sibling, value="More then 1 sibling with autism").pack(anchor="w")
+tk.Entry(sister_autism_frame, textvariable=sister_brother_autism_more_then_1_description).pack(side="left")
+
+adhd_frame = tk.Frame(main_frame)
+adhd_frame.pack(anchor="w", pady=5)
+tk.Label(adhd_frame, text="Have either sister or brother been diagnosed with an Attention Deficit/Hyperactivity Disorder").pack(anchor="w")
+tk.Radiobutton(adhd_frame, text="Yes", variable=sister_brother_adhd, value=True).pack(side="left")
+tk.Radiobutton(adhd_frame, text="No", variable=sister_brother_adhd, value=False).pack(side="left")
+tk.Label(adhd_frame, text="Check if:").pack(anchor="w")
+tk.Radiobutton(adhd_frame, text="full biological siblings?", variable=sister_brother_adhd_sibling, value="Full biological siblings").pack(anchor="w")
+tk.Radiobutton(adhd_frame, text="half sibling?", variable=sister_brother_adhd_sibling, value="half sibling").pack(anchor="w")
+tk.Radiobutton(adhd_frame, text="adopted sibling (sister ; brother)?", variable=sister_brother_adhd_sibling, value="adopted sibling").pack(anchor="w")
+tk.Entry(adhd_frame, textvariable=sister_brother_adhd_adopted_description).pack(side="left")
+tk.Radiobutton(adhd_frame, text="More than 1 sibling with ADHD?", variable=sister_brother_adhd_sibling, value="More than 1 sibling with ADHD").pack(anchor="w")
+tk.Entry(adhd_frame, textvariable=sister_brother_adhd_more_than_1_description).pack(side="left")
+# -----------------------------
+# Table
+# -----------------------------
+table_frame = tk.Frame(main_frame)
+table_frame.pack(anchor="w", pady=20)
+
+headers = ["Name:","Age:","Full Sibling?", "Adopted", "Dx"]
+
+for col, text in enumerate(headers):
+    tk.Label(
+        table_frame,
+        text=text,
+        font=("Arial",10, "bold"),
+        borderwidth=1,
+        relief="solid",
+        width=15
+    ).grid(row=0, column=col)
+
+for row in range(1, 5): 
+    tk.Entry(table_frame, width=17).grid(row=row, column=0)
+    tk.Entry(table_frame, width=17).grid(row=row, column=1)
+    tk.Entry(table_frame, width=17).grid(row=row, column=2)
+    tk.Entry(table_frame, width=17).grid(row=row, column=3)
+    tk.Entry(table_frame, width=17).grid(row=row, column=4)
+
+biological_father_frame = tk.Frame(main_frame)
+biological_father_frame.pack(anchor="w", pady=5)
+tk.Label(biological_father_frame,text="Is your child's biological father the same person as the father of the older sibling?").pack(anchor="w")
+tk.Radiobutton(biological_father_frame, text="Yes, this child and their older sibling have the same biological father", variable=same_father_as_older_sibling, value=True).pack(anchor="w")
+tk.Radiobutton(biological_father_frame, text="No, fathers are different for the two children", variable=same_father_as_older_sibling, value=False).pack(anchor="w")
+
+biological_mother_frame = tk.Frame(main_frame)
+biological_mother_frame.pack(anchor="w", pady=5)
+tk.Label(biological_father_frame, text="Is your child's biological mother the same person as mother of the older sibling?").pack(anchor="w")
+tk.Radiobutton(biological_mother_frame, text="Yes, this child and their older sibling have the same biological mother", variable=same_mother_as_older_sibling, value=True).pack(anchor="w")
+tk.Radiobutton(biological_mother_frame, text="No, mothers are different for the two children", variable=same_mother_as_older_sibling, value=False).pack(anchor="w")
+
+# -----------------------------
+# Save Button
+# -----------------------------
+tk.Button(main_frame, text="Save", command=save_form, bg="green", fg="black",
+          font=("Arial", 12, "bold"), width=20).pack(pady=20)
+root.mainloop()

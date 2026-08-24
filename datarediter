@@ -1,0 +1,135 @@
+import tkinter as tk
+import sqlite3
+import os
+from tkinter import messagebox
+
+# -----------------------------
+# Main Window
+# -----------------------------
+root = tk.Tk()
+root.title("Patient Reports")
+root.geometry("900x850")
+
+
+# -----------------------------
+# Left Panel - Patient List
+# -----------------------------
+left_panel = tk.Frame(root, width=200, bg="#f0f0f0", padx=10, pady=10)
+left_panel.pack(side="left", fill="y")
+left_panel.pack_propagate(False)
+
+tk.Label(left_panel, text="Patients", font=("Arial", 13, "bold"), bg="#f0f0f0").pack(pady=(0,5))
+
+# Search box inside left panel
+search_var = tk.StringVar()
+tk.Entry(left_panel, textvariable=search_var).pack(fill="x", pady=(0,5))
+
+# Scrollable listbox
+list_frame = tk.Frame(left_panel, bg="#f0f0f0")
+list_frame.pack(fill="both", expand=True)
+
+scrollbar = tk.Scrollbar(list_frame)
+scrollbar.pack(side="right", fill="y")
+
+# -----------------------------
+# Right Panel - Patient Forms
+# -----------------------------
+right_panel = tk.Frame(root, width=200, bg="#f0f0f0", padx=10, pady=10)
+right_panel.pack(side="right", fill="y")
+right_panel.pack_propagate(False)
+
+tk.Label(right_panel, text="Patient_info", font=("Arial", 13, "bold"), bg="#f0f0f0").pack(pady=(0,5))
+
+right_scrollbar = tk.Scrollbar(right_panel)
+right_horiztonal_scrollbar = tk.Scrollbar(right_panel)
+right_scrollbar.pack(side="right", fill="y")
+right_horiztonal_scrollbar.pack(side="bottom", fill="x")
+
+right_canvas = tk.Canvas(right_panel, yscrollcommand=right_scrollbar.set, xscrollcommand=right_horiztonal_scrollbar.set, bg="#f0f0f0")
+right_canvas.pack(side="left", fill="both", expand=True)
+
+right_scrollbar.config(command=right_canvas.yview)
+right_horiztonal_scrollbar.config(command=right_canvas.xview)
+
+fields_frame = tk.Frame(right_canvas, bg="#f0f0f0")
+fields_frame.bind("<Configure>", lambda e: right_canvas.configure(scrollregion=right_canvas.bbox("all")))
+right_canvas.create_window((0, 0), window=fields_frame, anchor="nw")
+
+def load_patients():
+    conn = sqlite3.connect("databases/patient_data.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT dob " \
+    ", child_name" \
+    " FROM patients")
+
+    rows = cursor.fetchall()
+
+    for row in rows:
+        patient_listbox.insert(tk.END, f"{row[0]} - {row[1]}")
+
+    conn.close()
+
+def on_select(event):
+
+    conn = sqlite3.connect("databases/patient_data.db")
+    cursor = conn.cursor()
+
+    index = patient_listbox.curselection()
+    text = patient_listbox.get(index)
+
+    parts = text.split(" - ")
+    child_name = parts[0]
+    dob = parts[1]
+
+    cursor.execute("SELECT * FROM patients WHERE child_name = ?  AND dob = ?",(child_name, dob))
+
+    record = cursor.fetchone()
+
+    conn.close()
+
+    record_dict = dict(zip(columns, record))
+
+    for col in columns:
+        entries[col].delete(0, tk.END)
+        entries[col].insert(0, record_dict[col])
+
+columns = ["race","parent_name","eligibility","age","sex","subject_id","dob","address","child_name","first_name","last_name","screener","eligibility","high_familial_risk","low_familial_risk","schedule_date","birthweight","gestational","verbal_consent","initials","consents_time"
+           ,"consents_ra","consents_room","recording_time","recording_ra","recording_room","neuropsych_time","neuropsych_ra","neuropsych_room", "homephone", "workphone", "besttimetocall", "fax","email","mother", "father", "motherage", "fatherage", "div","mar","dec","biologicalmother","biologicalmothername","biologicalfather","biologicalfathername"
+           ,"researchparticipitation","researchstudy","researchstudywhen","researchstudywhere","family_psychiatric","family_psychiatric_description","father_mother_autism","father_mother_schizophrenia","father_mother_learning_disability","substance_abuse","siblings"
+           ,"sister_brother_autism","sister_brother_autism_sibling","sister_brother_autism_adopted_description","sister_brother_autism_more_then_1_description","sister_brother_adhd","sister_brother_adhd_sibling","sister_brother_adhd_adopted_description","sister_brother_adhd_more_then_1_descripton"
+           ,"same_father_as_older_sibling","same_mother_as_older_sibling","medicalhsitory_var","seen_neurologist","neurologist_description","head_injury","head_injury_description","head_injury_conciousness","head_injury_confusion","head_injury_hospitalization","genetic_abnormalities"
+           ,"genetic_abnormalities_description","seizure_epilepticattack","baby_born_on_time","gestational_age","birthweight","complication_pregnancy","complication_pregnancy_description"]
+
+entries = {}
+
+for col in columns:
+    tk.Label(fields_frame, text=col).pack()
+    entry = tk.Entry(fields_frame)
+    entry.pack()
+    entries[col] = entry
+
+
+
+
+
+patient_listbox = tk.Listbox(
+    list_frame,
+    yscrollcommand=scrollbar.set,
+    selectbackground="#4a90d9",
+    activestyle="none",
+    font=("Arial", 10),
+    cursor="hand2"
+)
+patient_listbox.bind("<<ListboxSelect>>", on_select)
+
+
+
+patient_listbox.pack(side="left", fill="both", expand=True)
+scrollbar.config(command=patient_listbox.yview)
+
+load_patients()
+
+root.mainloop()
+
+
