@@ -45,15 +45,16 @@ class PatientsView(QWidget):
         header.addLayout(title_block)
         header.addStretch()
         header.addWidget(new_patient)
-
+#change view -> visuals
         metrics = QHBoxLayout()
-        self.total_patients_metric = self._metric("Total patients", "0")
-        self.pending_forms_metric = self._metric("Pending forms", "0")
-        self.ready_exports_metric = self._metric("Ready exports", "0")
+        metrics.setSpacing(20)
+        self.total_patients_metric = self._metric("Total patients", "0", "#5243FA")
+        self.pending_forms_metric = self._metric("Pending forms", "0", "#E32929")
+        self.ready_exports_metric = self._metric("Ready exports", "0", "#41A350")
 
-        metrics.addWidget(self.total_patients_metric)
-        metrics.addWidget(self.pending_forms_metric)
-        metrics.addWidget(self.ready_exports_metric)
+        metrics.addWidget(self.total_patients_metric,1)
+        metrics.addWidget(self.pending_forms_metric,1)
+        metrics.addWidget(self.ready_exports_metric,1)
         metrics.addStretch()
 
         controls = QHBoxLayout()
@@ -85,18 +86,29 @@ class PatientsView(QWidget):
 
         self.load_patients()
 
-    def _metric(self, label_text: str, value_text: str) -> QFrame:
+    def _metric(self, label_text: str, value_text: str, accent_color: str) -> QFrame:
         box = QFrame()
+        box.setObjectName("MetricCard")
         box.setMinimumWidth(180)
+        box.setStyleSheet(f"""
+            QFrame#MetricCard {{
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-left: 6px solid {accent_color};
+                border-radius: 10px;
+                padding: 12px 16px;
+            }}
+        """)
 
         layout = QVBoxLayout(box)
-        layout.setContentsMargins(0, 0, 24, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
 
-        label = QLabel(label_text)
-        label.setObjectName("Muted")
+        label = QLabel(label_text.upper())
+        label.setStyleSheet("color: #666666; font-size: 11px; font-weight: bold; border: none;")
 
         value = QLabel(value_text)
-        value.setObjectName("MetricValue")
+        value.setStyleSheet("color: #1a1a1a; font-size: 26px; font-weight: bold; border: none;")
 
         layout.addWidget(label)
         layout.addWidget(value)
