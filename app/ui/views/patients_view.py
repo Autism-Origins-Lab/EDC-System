@@ -39,6 +39,7 @@ class PatientsView(QWidget):
         title_block.addWidget(subtitle)
 
         new_patient = QPushButton("New Patient")
+        new_patient.setCursor(Qt.PointingHandCursor)
         new_patient.setObjectName("PrimaryButton")
         new_patient.clicked.connect(self.open_new_patient_dialog)
 
@@ -64,6 +65,7 @@ class PatientsView(QWidget):
 
         filter_button = QPushButton("Filter")
         filter_button.setObjectName("SecondaryButton")
+        filter_button.setCursor(Qt.PointingHandCursor)
 
         controls.addWidget(self.table_search, 1)
         controls.addWidget(filter_button)
@@ -78,6 +80,8 @@ class PatientsView(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.cellDoubleClicked.connect(self.open_patient_detail)
+        self.table_search.setCursor(Qt.IBeamCursor)
+        self.table.viewport().setCursor(Qt.PointingHandCursor)
 
         layout.addLayout(header)
         layout.addLayout(metrics)
@@ -139,8 +143,6 @@ class PatientsView(QWidget):
 
             for column_index, value in enumerate(values):
                 item = QTableWidgetItem(str(value) if value is not None else "")
-                
-                # Apply high-contrast text color explicitly
                 item.setForeground(Qt.GlobalColor.black)
                 
                 if column_index == 5:
