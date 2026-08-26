@@ -38,6 +38,10 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar()
         self.sidebar.section_selected.connect(self.show_section)
 
+    #Mouse changes on hover for each placeholder page, to make it look clickable.
+        for placeholder_page in self.sidebar.findChildren(QWidget):
+            placeholder_page.setCursor(Qt.PointingHandCursor)
+
         self.pages = QStackedWidget()
         self.section_indexes = {
             "Patients": self.pages.addWidget(PatientsView()),
@@ -100,15 +104,12 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 28, 28, 18)
         layout.setSpacing(8)
+        #labels are inline this way, no need to use local variable declarations
+        layout.addWidget(QLabel(title, objectName="PageTitle"))
 
-        heading = QLabel(title)
-        heading.setObjectName("PageTitle")
-
-        body = QLabel(message)
-        body.setObjectName("Muted")
-        body.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-
-        layout.addWidget(heading)
+        body = QLabel(message, objectName="Muted")
+        body.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         layout.addWidget(body)
+
         layout.addStretch()
         return page
