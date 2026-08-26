@@ -1,14 +1,54 @@
-# Mac OS related files
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.ruff_cache
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Dependency/build output
+build/
+dist/
+*.egg-info/
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environment/config
+.env
+.env.*
+!.env.example
+
+# SQLite local data
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/backups/
+data/exports/
+
+# App logs
+logs/
+*.log
+
+# Generated exports / temporary office files
+~$*
+*.tmp
+
+# OS files
 .DS_Store
 __MACOSX/
+Thumbs.db
+desktop.ini
 
-# Image/audio/video files (or the folder that contains them)
-# UPDATE THIS LATER
-
-# Database files
-databases/
-
-# VS Code files
+# IDE/editor local settings
 .vscode/
-__pycache__/
-tests/__pycache__/
+.idea/
