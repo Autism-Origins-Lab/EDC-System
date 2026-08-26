@@ -129,18 +129,23 @@ class PatientsView(QWidget):
                 pending_forms += 1
 
             values = [
-                patient["subject_id"],
-                patient["child_name"],
-                patient["eligibility"],
-                patient["screener"],
-                patient["schedule_date"],
-                "Open",
-            ]
+                    patient.get("subject_id", "N/A"),
+                    patient.get("child_name", "N/A"),
+                    patient.get("eligibility", "N/A"),
+                    patient.get("screener", "N/A"),
+                    patient.get("schedule_date", "N/A"),
+                    "Open",
+                ]
 
             for column_index, value in enumerate(values):
-                item = QTableWidgetItem(str(value))
+                item = QTableWidgetItem(str(value) if value is not None else "")
+                
+                # Apply high-contrast text color explicitly
+                item.setForeground(Qt.GlobalColor.black)
+                
                 if column_index == 5:
                     item.setTextAlignment(Qt.AlignCenter)
+                
                 self.table.setItem(row_index, column_index, item)
 
         self.total_patients_metric.value_label.setText(str(len(self.patients)))
