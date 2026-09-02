@@ -39,21 +39,23 @@ class PatientsView(QWidget):
         title_block.addWidget(subtitle)
 
         new_patient = QPushButton("New Patient")
+        new_patient.setCursor(Qt.PointingHandCursor)
         new_patient.setObjectName("PrimaryButton")
         new_patient.clicked.connect(self.open_new_patient_dialog)
 
         header.addLayout(title_block)
         header.addStretch()
         header.addWidget(new_patient)
-
+#change view -> visuals
         metrics = QHBoxLayout()
-        self.total_patients_metric = self._metric("Total patients", "0")
-        self.pending_forms_metric = self._metric("Pending forms", "0")
-        self.ready_exports_metric = self._metric("Ready exports", "0")
+        metrics.setSpacing(20)
+        self.total_patients_metric = self._metric("Total patients", "0", "#5243FA")
+        self.pending_forms_metric = self._metric("Pending forms", "0", "#E32929")
+        self.ready_exports_metric = self._metric("Ready exports", "0", "#41A350")
 
-        metrics.addWidget(self.total_patients_metric)
-        metrics.addWidget(self.pending_forms_metric)
-        metrics.addWidget(self.ready_exports_metric)
+        metrics.addWidget(self.total_patients_metric,1)
+        metrics.addWidget(self.pending_forms_metric,1)
+        metrics.addWidget(self.ready_exports_metric,1)
         metrics.addStretch()
 
         controls = QHBoxLayout()
@@ -63,6 +65,7 @@ class PatientsView(QWidget):
 
         filter_button = QPushButton("Filter")
         filter_button.setObjectName("SecondaryButton")
+        filter_button.setCursor(Qt.PointingHandCursor)
 
         controls.addWidget(self.table_search, 1)
         controls.addWidget(filter_button)
@@ -77,6 +80,8 @@ class PatientsView(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.cellDoubleClicked.connect(self.open_patient_detail)
+        self.table_search.setCursor(Qt.IBeamCursor)
+        self.table.viewport().setCursor(Qt.PointingHandCursor)
 
         layout.addLayout(header)
         layout.addLayout(metrics)
@@ -85,18 +90,29 @@ class PatientsView(QWidget):
 
         self.load_patients()
 
-    def _metric(self, label_text: str, value_text: str) -> QFrame:
+    def _metric(self, label_text: str, value_text: str, accent_color: str) -> QFrame:
         box = QFrame()
+        box.setObjectName("MetricCard")
         box.setMinimumWidth(180)
+        box.setStyleSheet(f"""
+            QFrame#MetricCard {{
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-left: 6px solid {accent_color};
+                border-radius: 10px;
+                padding: 12px 16px;
+            }}
+        """)
 
         layout = QVBoxLayout(box)
-        layout.setContentsMargins(0, 0, 24, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
 
-        label = QLabel(label_text)
-        label.setObjectName("Muted")
+        label = QLabel(label_text.upper())
+        label.setStyleSheet("color: #666666; font-size: 11px; font-weight: bold; border: none;")
 
         value = QLabel(value_text)
-        value.setObjectName("MetricValue")
+        value.setStyleSheet("color: #1a1a1a; font-size: 26px; font-weight: bold; border: none;")
 
         layout.addWidget(label)
         layout.addWidget(value)
@@ -117,18 +133,21 @@ class PatientsView(QWidget):
                 pending_forms += 1
 
             values = [
-                patient["subject_id"],
-                patient["child_name"],
-                patient["eligibility"],
-                patient["screener"],
-                patient["schedule_date"],
-                "Open",
-            ]
+                    patient.get("subject_id", "N/A"),
+                    patient.get("child_name", "N/A"),
+                    patient.get("eligibility", "N/A"),
+                    patient.get("screener", "N/A"),
+                    patient.get("schedule_date", "N/A"),
+                    "Open",
+                ]
 
             for column_index, value in enumerate(values):
-                item = QTableWidgetItem(str(value))
+                item = QTableWidgetItem(str(value) if value is not None else "")
+                item.setForeground(Qt.GlobalColor.black)
+                
                 if column_index == 5:
                     item.setTextAlignment(Qt.AlignCenter)
+                
                 self.table.setItem(row_index, column_index, item)
 
         self.total_patients_metric.value_label.setText(str(len(self.patients)))
