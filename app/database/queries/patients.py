@@ -8,7 +8,6 @@ PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race"}
 def list_patients() -> list[dict]:
     with get_connection() as connection:
         rows = connection.execute(
-            #I added a completed as part of the eligibility. 
             """
             SELECT
                 p.id,
@@ -112,3 +111,27 @@ def search_patients(search_text: str) -> list[dict]:
         ).fetchall()
 
     return [dict(row) for row in rows]
+
+def update_patient_eligibility(patient_id: int, status: str) -> None: #database method that marks eligibility as eligible --> ready export
+  with get_connection() as connection:
+        cursor = connection.execute(
+            "SELECT 1 FROM telephone_screenings WHERE patient_id = ?",
+            (patient_id,)
+        )
+        if cursor.fetchone():
+            connection.execute(
+                """
+                UPDATE telephone_screenings
+                SET eligibility = ?
+                WHERE patient_id = ?
+                """,
+                (status, patient_id),
+            )
+        else:
+            connection.execute(
+                """
+                INSERT INTO telephone_screenings (patient_id, eligibility)
+                VALUES (?, ?)
+                """,
+                (patient_id, status),
+            )

@@ -133,6 +133,8 @@ class PatientsView(QWidget):
         for row_index, patient in enumerate(self.patients):
             if patient["eligibility"] == "Not started":
                 pending_forms += 1
+            if patient["eligibility"] == "Yes":
+                completed_forms += 1
 
         
 
@@ -173,31 +175,9 @@ class PatientsView(QWidget):
 
         self.show_patient_detail(self.patients[row]["id"])
 
-    def get_enrollment(self, patient_id: int): #helper function to get enrollment status
-         search_text = self.table_search.text()
-         self.patients = search_patients(search_text) if search_text.strip() else list_patients()
-        
-         self.table.setRowCount(len(self.patients))
-        
-         for row, patient in enumerate(self.patients):
-              if patient["subject_id"] == patient_id:
-                 return patient["eligibility"] #returns the eligibility status of a patient 
-
-    def set_enrollment_complete(self, patient_id: int):
-        enrollment = get_enrollment(patient_id)
-        if enrollment != "Eligible":
-             search_text = self.table_search.text()
-             self.patients = search_patients(search_text) if search_text.strip() else list_patients()
-             self.table.setRowCount(len(self.patients))
-            
-             for row, patient in enumerate(self.patients):
-                  if patient["subject_id"] == patient_id:
-                    patient["eligibility"] = "Eligible" #changes the eligibility to completed.
-            
-
-
-
     def show_patient_detail(self, patient_id: int) -> None:
         dialog = PatientDetailView(patient_id, self)
         dialog.exec()
         self.load_patients()
+
+    #Need something that automatically detects telephone screening eligibility and updates it to the telephone screening.

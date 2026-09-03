@@ -8,13 +8,12 @@ from PySide6.QtWidgets import (
     QPushButton
 )
 
-from app.database.queries.patients import get_patient, list_patients, search_patients #to search through database
+from app.database.queries.patients import get_patient, update_patient_eligibility
 from app.ui.views.family_medical_history_view import FamilyMedicalHistoryView
 from app.ui.views.medical_history_view import MedicalHistoryView
 from app.ui.views.procedure_schedule_view import ProcedureScheduleView
 from app.ui.views.screening_questionnaire_view import ScreeningQuestionnaireView
 from app.ui.views.telephone_screening_view import TelephoneScreeningView
-
 
 class PatientDetailView(QDialog):
     def __init__(self, patient_id: int, parent=None):
@@ -37,23 +36,28 @@ class PatientDetailView(QDialog):
         tabs.addTab(ProcedureScheduleView(patient_id), "Procedure Schedule")
 
         #adding a mark complete button so that it's marked complete for manual review
-        mark_eligible = QPushButton("Mark eligible")
-        mark_eligible.clicked.connect(self.markedEligible) #debugging purposes
+        self.mark_eligible_button = QPushButton("Mark eligible")
+        self.mark_eligible_button.setObjectName("Mark_Eligible_Button")
+        self.mark_eligible_button.clicked.connect(self.markedEligible) #debugging purposes
 
         
         layout.addWidget(tabs)
-        layout.addWidget(mark_eligible)
 
-    def markedEligible(self, patient_id: int):
-        for p in enumerate(self.patient):  #need to match patient_id to data base
-            if patient["subject_id"] == patient_id:
-                patient["eligibility"] == "Eligible"
+        current_status = self.patient.get("eligibility") if self.patient else None
+        if current_status == "Yes":
+            self.mark_eligible_button.setEnabled(False)
+            self.mark_eligible_button.setText("Already Eligible")
 
-        for row, patient in enumerate(self.patient):  #need to match patient_id to data base
-            if patient["eligibility"] == "Eligible":
-                 completed_forms += 1
+        layout.addWidget(self.mark_eligible_button)
 
-        print(f"{patient_id} Marked Eligible ")
+    def markedEligible(self):
+        update_patient_eligibility(self.patient_id, "Yes") #call database method
+
+        if self.patient:
+            self.patient["eligibility"] = "Yes"
+
+        self.mark_eligible_button.setEnabled(False)
+        self.mark_eligible_button.setText("Marked Eligible")
 
     def _build_overview(self) -> QWidget:
         page = QWidget()
