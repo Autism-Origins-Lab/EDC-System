@@ -1,4 +1,5 @@
 from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -127,10 +128,13 @@ class PatientsView(QWidget):
         self.table.setRowCount(len(self.patients))
 
         pending_forms = 0
+        completed_forms = 0 #not hardcoded
 
         for row_index, patient in enumerate(self.patients):
             if patient["eligibility"] == "Not started":
                 pending_forms += 1
+
+        
 
             values = [
                     patient.get("subject_id", "N/A"),
@@ -151,8 +155,8 @@ class PatientsView(QWidget):
                 self.table.setItem(row_index, column_index, item)
 
         self.total_patients_metric.value_label.setText(str(len(self.patients)))
-        self.pending_forms_metric.value_label.setText(str(pending_forms))
-        self.ready_exports_metric.value_label.setText("0")
+        self.pending_forms_metric.value_label.setText(str(pending_forms)) #will update this, decrease by one when manual review (mark complete) button is pressed
+        self.ready_exports_metric.value_label.setText(str(completed_forms)) #will update this, when manual review is complete by 1.
 
     def open_new_patient_dialog(self) -> None:
         dialog = NewPatientDialog(self)
@@ -168,6 +172,30 @@ class PatientsView(QWidget):
             return
 
         self.show_patient_detail(self.patients[row]["id"])
+
+    def get_enrollment(self, patient_id: int): #helper function to get enrollment status
+         search_text = self.table_search.text()
+         self.patients = search_patients(search_text) if search_text.strip() else list_patients()
+        
+         self.table.setRowCount(len(self.patients))
+        
+         for row, patient in enumerate(self.patients):
+              if patient["subject_id"] == patient_id:
+                 return patient["eligibility"] #returns the eligibility status of a patient 
+
+    def set_enrollment_complete(self, patient_id: int):
+        enrollment = get_enrollment(patient_id)
+        if enrollment != "Eligible":
+             search_text = self.table_search.text()
+             self.patients = search_patients(search_text) if search_text.strip() else list_patients()
+             self.table.setRowCount(len(self.patients))
+            
+             for row, patient in enumerate(self.patients):
+                  if patient["subject_id"] == patient_id:
+                    patient["eligibility"] = "Eligible" #changes the eligibility to completed.
+            
+
+
 
     def show_patient_detail(self, patient_id: int) -> None:
         dialog = PatientDetailView(patient_id, self)

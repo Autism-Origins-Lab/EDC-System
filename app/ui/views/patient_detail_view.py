@@ -5,9 +5,10 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QWidget,
+    QPushButton
 )
 
-from app.database.queries.patients import get_patient
+from app.database.queries.patients import get_patient, list_patients, search_patients #to search through database
 from app.ui.views.family_medical_history_view import FamilyMedicalHistoryView
 from app.ui.views.medical_history_view import MedicalHistoryView
 from app.ui.views.procedure_schedule_view import ProcedureScheduleView
@@ -35,7 +36,24 @@ class PatientDetailView(QDialog):
         tabs.addTab(FamilyMedicalHistoryView(patient_id), "Family Medical History")
         tabs.addTab(ProcedureScheduleView(patient_id), "Procedure Schedule")
 
+        #adding a mark complete button so that it's marked complete for manual review
+        mark_eligible = QPushButton("Mark eligible")
+        mark_eligible.clicked.connect(self.markedEligible) #debugging purposes
+
+        
         layout.addWidget(tabs)
+        layout.addWidget(mark_eligible)
+
+    def markedEligible(self, patient_id: int):
+        for p in enumerate(self.patient):  #need to match patient_id to data base
+            if patient["subject_id"] == patient_id:
+                patient["eligibility"] == "Eligible"
+
+        for row, patient in enumerate(self.patient):  #need to match patient_id to data base
+            if patient["eligibility"] == "Eligible":
+                 completed_forms += 1
+
+        print(f"{patient_id} Marked Eligible ")
 
     def _build_overview(self) -> QWidget:
         page = QWidget()

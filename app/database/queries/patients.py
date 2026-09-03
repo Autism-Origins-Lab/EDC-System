@@ -8,12 +8,13 @@ PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race"}
 def list_patients() -> list[dict]:
     with get_connection() as connection:
         rows = connection.execute(
+            #I added a completed as part of the eligibility. 
             """
             SELECT
                 p.id,
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
-                COALESCE(ts.eligibility, 'Not started') AS eligibility,
+                COALESCE(ts.eligibility, 'Not started', 'Eligible') AS eligibility,
                 COALESCE(ts.screener, '') AS screener,
                 COALESCE(ts.schedule_date, '') AS schedule_date
             FROM patients p
