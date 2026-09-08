@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -5,7 +6,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QWidget,
-    QPushButton
+    QPushButton,
 )
 """Issues I want to consider:
 1. the mark complete button should be completely independent from eligibility. If it is marked complete, then it should be put into a ready export.
@@ -46,6 +47,8 @@ class PatientDetailView(QDialog):
         self.mark_eligible_button = QPushButton("Mark eligible")
         self.mark_eligible_button.setObjectName("Mark_Eligible_Button")
         self.mark_eligible_button.clicked.connect(self.markedEligible) #debugging purposes
+        self.mark_eligible_button.setCursor(Qt.PointingHandCursor) #make it look clickable
+
 
         
         layout.addWidget(tabs)
