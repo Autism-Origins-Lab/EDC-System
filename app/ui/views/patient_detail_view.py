@@ -7,6 +7,13 @@ from PySide6.QtWidgets import (
     QWidget,
     QPushButton
 )
+"""Issues I want to consider:
+1. the mark complete button should be completely independent from eligibility. If it is marked complete, then it should be put into a ready export.
+    -> I think i might need to add another variable called "complete" form in the data base.
+2. what fields need to be filled out for something to be marked complete? so it also does it automatically?
+3. a section to review all of the form inputs & section before finalizing changes
+4. when a form is "complete" and marked ready to export, and i want to make changes to it, it should update what needs to be exported already.
+"""
 
 from app.database.queries.patients import get_patient, update_patient_eligibility
 from app.ui.views.family_medical_history_view import FamilyMedicalHistoryView
