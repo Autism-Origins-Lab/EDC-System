@@ -50,6 +50,16 @@ class PatientDetailView(QDialog):
 
         layout.addWidget(self.mark_eligible_button)
 
+        #editing the style of the mark_eligible_button
+        self.mark_eligible_button.setStyleSheet(
+            """
+             background-color: #F527B4;
+             color: #FFFFFF;
+             border-radius: 20px;
+             padding: 12px 16px;
+            """
+        )
+
     def markedEligible(self):
         update_patient_eligibility(self.patient_id, "Yes") #call database method
 
