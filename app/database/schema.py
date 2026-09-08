@@ -13,6 +13,16 @@ CREATE TABLE IF NOT EXISTS patients (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS patients_video (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    title TEXT,
+    file_path TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS telephone_screenings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id INTEGER NOT NULL UNIQUE,
@@ -130,3 +140,4 @@ CREATE TABLE IF NOT EXISTS export_logs (
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA_SQL)
+
