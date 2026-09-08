@@ -125,7 +125,7 @@ def update_patient_eligibility(patient_id: int, status: str) -> None: #database 
                 SET eligibility = ?
                 WHERE patient_id = ?
                 """,
-                (status, patient_id),
+                (status, patient_id), #so that the eligibility updates from telephone_screenings
             )
         else:
             connection.execute(
@@ -133,5 +133,5 @@ def update_patient_eligibility(patient_id: int, status: str) -> None: #database 
                 INSERT INTO telephone_screenings (patient_id, eligibility)
                 VALUES (?, ?)
                 """,
-                (patient_id, status),
+                (patient_id, status), 
             )

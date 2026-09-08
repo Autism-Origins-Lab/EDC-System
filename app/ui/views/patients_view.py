@@ -179,5 +179,3 @@ class PatientsView(QWidget):
         dialog = PatientDetailView(patient_id, self)
         dialog.exec()
         self.load_patients()
-
-    #Need something that automatically detects telephone screening eligibility and updates it to the telephone screening.
