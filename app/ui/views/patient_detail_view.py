@@ -45,24 +45,24 @@ class PatientDetailView(QDialog):
         tabs.addTab(ProcedureScheduleView(patient_id), "Procedure Schedule")
 
         #adding a mark complete button so that it's marked complete for manual review
-        self.mark_eligible_button = QPushButton("Mark eligible")
-        self.mark_eligible_button.setObjectName("Mark_Eligible_Button")
-        self.mark_eligible_button.clicked.connect(self.markedEligible) #debugging purposes
-        self.mark_eligible_button.setCursor(Qt.PointingHandCursor) #make it look clickable
+        self.mark_complete_button = QPushButton("Mark complete")
+        self.mark_complete_button.setObjectName("Mark_Complete_Button")
+        self.mark_complete_button.clicked.connect(self.markedComplete) #debugging purposes
+        self.mark_complete_button.setCursor(Qt.PointingHandCursor) #make it look clickable
 
 
         
         layout.addWidget(tabs)
 
-        current_status = self.patient.get("eligibility") if self.patient else None
-        if current_status == "Yes":
-            self.mark_eligible_button.setEnabled(False)
-            self.mark_eligible_button.setText("Already Eligible")
+        current_status = self.patient.get("form_progress") if self.patient else None
+        if current_status == "Complete":
+            self.mark_complete_button.setEnabled(False)
+            self.mark_complete_button.setText("Already Complete")
 
-        layout.addWidget(self.mark_eligible_button)
+        layout.addWidget(self.mark_complete_button)
 
-        #editing the style of the mark_eligible_button
-        self.mark_eligible_button.setStyleSheet(
+        #editing the style of the mar_complete_button
+        self.mark_complete_button.setStyleSheet(
             """
              background-color: #F527B4;
              color: #FFFFFF;
@@ -71,14 +71,14 @@ class PatientDetailView(QDialog):
             """
         )
 
-    def markedEligible(self):
-        update_patient_eligibility(self.patient_id, "Yes") #call database method
+    def markedComplete(self):
+        update_patient_form(self.patient_id, "Complete") #call database method
 
         if self.patient:
-            self.patient["eligibility"] = "Yes"
+            self.patient["form_progress"] = "Complete"
 
-        self.mark_eligible_button.setEnabled(False)
-        self.mark_eligible_button.setText("Marked Eligible")
+        self.mark_complete_button.setEnabled(False)
+        self.mark_complete_button.setText("Marked Complete")
 
     def _build_overview(self) -> QWidget:
         page = QWidget()

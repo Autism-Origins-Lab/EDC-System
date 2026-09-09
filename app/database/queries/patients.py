@@ -10,6 +10,7 @@ def list_patients() -> list[dict]:
         rows = connection.execute(
             #added another column called form_progress that helps mark formed as Pending or Complete.
             #a form is pending when a new patient is added to the database. a form is complete when it is marked complete and ready to export. 
+            #FOR LATER: a patient's form is marked complete when they are ELIGIBLE and certain details are filled out. 
             """
             SELECT
                 p.id,
