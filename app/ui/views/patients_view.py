@@ -130,10 +130,10 @@ class PatientsView(QWidget):
         completed_forms = 0 #not hardcoded
 
         for row_index, patient in enumerate(self.patients):
-            if patient["form_progress"] == "Pending": #depending on form_progress instead of eligibility, 
+            if patient["form_status"] == "Pending": #depending on form_progress instead of eligibility, 
                     #but I need this to also be updated when a patient form is created (when the patient is basically created)
                 pending_forms += 1
-            if patient["form_progress"] == "Complete": 
+            if patient["form_status"] == "Complete": 
                 completed_forms += 1
 
         

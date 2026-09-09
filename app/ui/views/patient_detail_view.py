@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QPushButton,
 )
+
 """Issues I want to consider:
 1. the mark complete button should be completely independent from eligibility. If it is marked complete, then it should be put into a ready export.
     -> I think i might need to add another variable called "complete" form in the data base.
@@ -15,6 +16,13 @@ from PySide6.QtWidgets import (
 3. a section to review all of the form inputs & section before finalizing changes
 4. when a form is "complete" and marked ready to export, and i want to make changes to it, it should update what needs to be exported already.
 2. what fields need to be filled out for something to be marked complete? so it also does it automatically? worry abt later
+
+Accomplished:
+Added metric cards to display information in a friendlier way
+Display form information below (Eligibility, Name, ID)
+Testing UI and changing cursor on elements that are clickable
+I created a mark eligibility button that manually marks a form complete, but I'm tweaking that because I realized that it could pose a lot of problems later on while testing it out
+Working on EDC system & more vizualizations 
 """
 
 from app.database.queries.patients import get_patient, update_patient_form
@@ -74,7 +82,7 @@ class PatientDetailView(QDialog):
         update_patient_form(self.patient_id, "Complete") #call database method
 
         if self.patient:
-            self.patient["form_progress"] = "Complete"
+            self.patient["form)_status"] = "Complete"
 
         self.mark_complete_button.setEnabled(False)
         self.mark_complete_button.setText("Marked Complete")
@@ -90,6 +98,7 @@ class PatientDetailView(QDialog):
         form.addRow("Date of Birth", QLabel(patient.get("date_of_birth") or "Not entered"))
         form.addRow("Sex", QLabel(patient.get("sex") or "Not entered"))
         form.addRow("Race", QLabel(patient.get("race") or "Not entered"))
+        form.addRow("Form Status", QLabel(patient.get("form_status"))) #add the label to display whether this form is pending or complete
 
         layout.addLayout(form)
         layout.addStretch()
