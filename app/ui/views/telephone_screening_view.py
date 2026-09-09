@@ -55,6 +55,7 @@ class TelephoneScreeningView(QWidget):
         form.addRow("Consent Initials", self.initials_input)
 
         self.save_button = QPushButton("Save Telephone Screening")
+        self.save_button.setObjectName("PrimaryButton") #changed button so it looks consistent 
         self.save_button.clicked.connect(self.save)
 
         layout.addLayout(form)
