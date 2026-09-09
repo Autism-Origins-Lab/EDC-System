@@ -8,12 +8,15 @@ PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race"}
 def list_patients() -> list[dict]:
     with get_connection() as connection:
         rows = connection.execute(
+            #added another column called form_progress that helps mark formed as Pending or Complete.
+            #a form is pending when a new patient is added to the database. a form is complete when it is marked complete and ready to export. 
             """
             SELECT
                 p.id,
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
                 COALESCE(ts.eligibility, 'Not started', 'Eligible') AS eligibility,
+                COALESCE(ts.form, 'Pending', 'Complete) AS form_progress 
                 COALESCE(ts.screener, '') AS screener,
                 COALESCE(ts.schedule_date, '') AS schedule_date
             FROM patients p
@@ -112,25 +115,25 @@ def search_patients(search_text: str) -> list[dict]:
 
     return [dict(row) for row in rows]
 
-def update_patient_eligibility(patient_id: int, status: str) -> None: #database method that marks eligibility as eligible --> ready export
+def update_patient_form(patient_id: int, status: str) -> None: #database method that marks form as complete --> ready export
   with get_connection() as connection:
         cursor = connection.execute(
-            "SELECT 1 FROM telephone_screenings WHERE patient_id = ?",
+            "SELECT 1 FROM patients WHERE patient_id = ?",
             (patient_id,)
         )
         if cursor.fetchone():
             connection.execute(
                 """
-                UPDATE telephone_screenings
-                SET eligibility = ?
+                UPDATE patients
+                SET form_progress = ?
                 WHERE patient_id = ?
                 """,
-                (status, patient_id), #so that the eligibility updates from telephone_screenings
+                (status, patient_id),
             )
         else:
             connection.execute(
                 """
-                INSERT INTO telephone_screenings (patient_id, eligibility)
+                INSERT INTO patients (patient_id, eligibility)
                 VALUES (?, ?)
                 """,
                 (patient_id, status), 
