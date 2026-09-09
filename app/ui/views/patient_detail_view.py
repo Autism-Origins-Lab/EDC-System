@@ -54,6 +54,7 @@ class PatientDetailView(QDialog):
 
         #adding a mark complete button so that it's marked complete for manual review
         self.mark_complete_button = QPushButton("Mark complete")
+        #the button should be grayed out and only colorful WHEN the patient's elibility = Yes. 
         self.mark_complete_button.setObjectName("Mark_Complete_Button")
         self.mark_complete_button.clicked.connect(self.markedComplete) #debugging purposes
         self.mark_complete_button.setCursor(Qt.PointingHandCursor) #make it look clickable
@@ -82,7 +83,7 @@ class PatientDetailView(QDialog):
         update_patient_form(self.patient_id, "Complete") #call database method
 
         if self.patient:
-            self.patient["form)_status"] = "Complete"
+            self.patient["form_status"] = "Complete"
 
         self.mark_complete_button.setEnabled(False)
         self.mark_complete_button.setText("Marked Complete")

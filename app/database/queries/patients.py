@@ -131,6 +131,7 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
                 WHERE id = ?
                 """,
                 (status, patient_id),
+            #for later, I want to make it so that you are only able to mark complete manually IF the patient is eligible.
             )
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
