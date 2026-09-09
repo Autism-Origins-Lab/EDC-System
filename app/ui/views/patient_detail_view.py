@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 2. what fields need to be filled out for something to be marked complete? so it also does it automatically? worry abt later
 """
 
-from app.database.queries.patients import get_patient, update_patient_eligibility
+from app.database.queries.patients import get_patient, update_patient_form
 from app.ui.views.family_medical_history_view import FamilyMedicalHistoryView
 from app.ui.views.medical_history_view import MedicalHistoryView
 from app.ui.views.procedure_schedule_view import ProcedureScheduleView
@@ -51,7 +51,6 @@ class PatientDetailView(QDialog):
         self.mark_complete_button.setCursor(Qt.PointingHandCursor) #make it look clickable
 
 
-        
         layout.addWidget(tabs)
 
         current_status = self.patient.get("form_progress") if self.patient else None

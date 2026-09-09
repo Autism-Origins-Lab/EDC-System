@@ -134,7 +134,7 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
         else:
             connection.execute(
                 """
-                INSERT INTO patients (patient_id, eligibility)
+                INSERT INTO patients (patient_id, form_progress)
                 VALUES (?, ?)
                 """,
                 (patient_id, status), 

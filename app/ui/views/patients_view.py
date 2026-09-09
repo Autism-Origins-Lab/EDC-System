@@ -130,9 +130,10 @@ class PatientsView(QWidget):
         completed_forms = 0 #not hardcoded
 
         for row_index, patient in enumerate(self.patients):
-            if patient["eligibility"] == "Not started":
+            if patient["form_progress"] == "Pending": #depending on form_progress instead of eligibility, 
+                    #but I need this to also be updated when a patient form is created (when the patient is basically created)
                 pending_forms += 1
-            if patient["eligibility"] == "Yes":
+            if patient["form_progress"] == "Complete": 
                 completed_forms += 1
 
         
@@ -144,6 +145,7 @@ class PatientsView(QWidget):
                     patient.get("screener", "N/A"),
                     patient.get("schedule_date", "N/A"),
                     "Open",
+                    patient.get("form_progress", "N/A")
                 ]
 
             for column_index, value in enumerate(values):
