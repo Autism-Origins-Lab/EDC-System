@@ -51,42 +51,71 @@ class PatientDetailView(QDialog):
         tabs.addTab(MedicalHistoryView(patient_id), "Medical History")
         tabs.addTab(FamilyMedicalHistoryView(patient_id), "Family Medical History")
         tabs.addTab(ProcedureScheduleView(patient_id), "Procedure Schedule")
-
-        #adding a mark complete button so that it's marked complete for manual review
-        self.mark_complete_button = QPushButton("Mark complete")
-        #the button should be grayed out and only colorful WHEN the patient's elibility = Yes. 
-        self.mark_complete_button.setObjectName("Mark_Complete_Button")
-        self.mark_complete_button.clicked.connect(self.markedComplete) #debugging purposes
-        self.mark_complete_button.setCursor(Qt.PointingHandCursor) #make it look clickable
-
-
         layout.addWidget(tabs)
 
-        current_status = self.patient.get("form_progress") if self.patient else None
-        if current_status == "Complete":
-            self.mark_complete_button.setEnabled(False)
-            self.mark_complete_button.setText("Already Complete")
+        #adding a mark complete button so that it's marked complete for manual review
+        self.mark_complete_button = QPushButton("Must Be Eligible to Mark Complete")
+        self.mark_complete_button.setObjectName("Mark_Complete_Button")
+        self.mark_complete_button.setCursor(Qt.PointingHandCursor) #make it look clickable
+
+        #if the patient is NOT eligible, the button is grayed out. 
+        while not self.is_eligible:
+             self.mark_complete_button.setStyleSheet(self.complete_button_style("#696969"))
+             if self.is_eligible: 
+                  break #the patient is eligible, so break out of this loop.
+
+        """
+        Problems:
+        1. The first loop never exits even if you mark it eligible, because "eligibility" is always empty.
+        """
+
+        while not self.is_complete: #while the patient's form is not marked complete,
+            self.mark_complete_button.setStyleSheet(self.complete_button_style("#44CCAA")) #the button should be colorful
+            self.mark_complete_button.clicked.connect(self.mark_complete) #it should be able to be marked complete
+            if self.is_complete: #the form is already complete, so now break out the loop
+                  self.mark_complete_button.setStyleSheet(self.complete_button_style("#D82454")) #once the loop is broken out of, (the patient is still eligible)
+                  self.mark_complete_button.setText("Unmark Complete")
+                  self.mark_complete_button.clicked.connect(self.unmark_complete) 
 
         layout.addWidget(self.mark_complete_button)
 
-        #editing the style of the mar_complete_button
-        self.mark_complete_button.setStyleSheet(
-            """
-             background-color: #F527B4;
-             color: #FFFFFF;
-             border-radius: 20px;
-             padding: 12px 16px;
-            """
-        )
+    @staticmethod
+    def complete_button_style(bg_color: str) -> str:
+         return f"""
+            QPushButton {{
+                background-color: {bg_color};
+                color: #FFFFFF;
+                border-radius: 20px;
+                padding: 12px 16px;
+            }}
+        """
 
-    def markedComplete(self):
+    def is_eligible(self):
+         eligibility_status = self.patient.get("eligibility") if self.patient else None
+         if eligibility_status == "Yes":
+              return True
+         
+    def is_complete(self):
+           current_status = self.patient.get("form_progress") if self.patient else None
+           if current_status == "Complete":
+                return True
+         
+    def mark_complete(self):
         update_patient_form(self.patient_id, "Complete") #call database method
 
         if self.patient:
             self.patient["form_status"] = "Complete"
 
-        self.mark_complete_button.setEnabled(False)
-        self.mark_complete_button.setText("Marked Complete")
+        self.mark_complete_button.setText("Unmark Complete")
+        self.mark_complete_button.clicked.connect(self.unmark_complete) 
+
+    def unmark_complete(self):
+        update_patient_form(self.patient_id, "Pending") #call database method
+
+        if self.patient:
+                    self.patient["form_status"] = "Pending"
+        self.mark_complete_button.setText("Mark Complete")
+        self.mark_complete_button.clicked.connect(self.mark_complete) 
 
     def _build_overview(self) -> QWidget:
         page = QWidget()
@@ -99,6 +128,7 @@ class PatientDetailView(QDialog):
         form.addRow("Date of Birth", QLabel(patient.get("date_of_birth") or "Not entered"))
         form.addRow("Sex", QLabel(patient.get("sex") or "Not entered"))
         form.addRow("Race", QLabel(patient.get("race") or "Not entered"))
+        form.addRow("Eligibility", QLabel(patient.get("eligibility")))
         form.addRow("Form Status", QLabel(patient.get("form_status"))) #add the label to display whether this form is pending or complete
 
         layout.addLayout(form)

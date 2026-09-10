@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.queries.forms import get_telephone_screening, save_telephone_screening
+from app.database.queries.patients import update_patient_eligibility #to set eligibility
 
 
 class TelephoneScreeningView(QWidget):
@@ -28,8 +29,9 @@ class TelephoneScreeningView(QWidget):
         self.screener_input = QLineEdit()
 
         self.eligibility_combo = QComboBox()
-        self.eligibility_combo.addItems(["", "Yes", "No"])
-
+        #I noticed that the telephone screening has the values "", "Yes", "No" which is different from the database.
+        #Switched to
+        self.eligibility_combo.addItems(["Not started", "Yes", "No"])
         self.high_risk_checkbox = QCheckBox("High familial risk")
         self.low_risk_checkbox = QCheckBox("Low familial risk")
 
@@ -113,9 +115,13 @@ class TelephoneScreeningView(QWidget):
 
     def save(self) -> None:
         save_telephone_screening(self.patient_id, self.collect_data())
+        update_patient_eligibility(self.patient_id, get_telephone_screening(self.patient_id).get("eligibility")) #set the patient id
+
 
         QMessageBox.information(
             self,
             "Saved",
             "Telephone screening saved successfully.",
         )
+
+    
