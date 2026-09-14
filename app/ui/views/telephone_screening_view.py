@@ -29,7 +29,7 @@ class TelephoneScreeningView(QWidget):
         self.screener_input = QLineEdit()
 
         self.eligibility_combo = QComboBox()
-        #I noticed that the telephone screening has the values "", "Yes", "No" which is different from the database.
+        #I noticed that the telephone screening had the values "", "Yes", "No" which is different from the database.
         #Switched to
         self.eligibility_combo.addItems(["Not started", "Yes", "No"])
         self.high_risk_checkbox = QCheckBox("High familial risk")
@@ -115,7 +115,7 @@ class TelephoneScreeningView(QWidget):
 
     def save(self) -> None:
         save_telephone_screening(self.patient_id, self.collect_data())
-        update_patient_eligibility(self.patient_id, get_telephone_screening(self.patient_id).get("eligibility")) #set the patient id
+        update_patient_eligibility(self.patient_id, self.eligibility_combo.currentText()) #set the patient id
 
 
         QMessageBox.information(

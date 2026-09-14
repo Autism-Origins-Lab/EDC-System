@@ -76,7 +76,6 @@ class PatientDetailView(QDialog):
                   self.mark_complete_button.setStyleSheet(self.complete_button_style("#D82454")) #once the loop is broken out of, (the patient is still eligible)
                   self.mark_complete_button.setText("Unmark Complete")
                   self.mark_complete_button.clicked.connect(self.unmark_complete) 
-
         layout.addWidget(self.mark_complete_button)
 
     @staticmethod
@@ -128,7 +127,7 @@ class PatientDetailView(QDialog):
         form.addRow("Date of Birth", QLabel(patient.get("date_of_birth") or "Not entered"))
         form.addRow("Sex", QLabel(patient.get("sex") or "Not entered"))
         form.addRow("Race", QLabel(patient.get("race") or "Not entered"))
-        form.addRow("Eligibility", QLabel(patient.get("eligibility")))
+        form.addRow("Eligibility", QLabel(patient.get("eligibility") or "Telephone Screening Not Working")) #issue
         form.addRow("Form Status", QLabel(patient.get("form_status"))) #add the label to display whether this form is pending or complete
 
         layout.addLayout(form)

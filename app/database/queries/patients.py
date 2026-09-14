@@ -136,9 +136,12 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
 
-
-def update_patient_eligibility(patient_id: int, status: str) -> None: #database method that marks form as complete --> ready export
-  #primary column is id. Direct update w cursor.rowcount --> check existence better
+'''
+I need this function in the telephone screening, so eligibility is actually updated.
+Alphabetical, eligibility, scheduling date 
+Search  to actually search up patients 
+'''
+def update_patient_eligibility(patient_id: int, status: str) -> None: #can't mark eligible on certain conditions
   with get_connection() as connection:
         cursor = connection.execute(
                 """
@@ -148,7 +151,6 @@ def update_patient_eligibility(patient_id: int, status: str) -> None: #database 
                 WHERE id = ?
                 """,
                 (status, patient_id),
-            #for later, I want to make it so that you are only able to mark complete manually IF the patient is eligible.
             )
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
