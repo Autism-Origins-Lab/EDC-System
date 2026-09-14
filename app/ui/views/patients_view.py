@@ -127,10 +127,16 @@ class PatientsView(QWidget):
         self.table.setRowCount(len(self.patients))
 
         pending_forms = 0
+        completed_forms = 0 #not hardcoded
 
         for row_index, patient in enumerate(self.patients):
-            if patient["eligibility"] == "Not started":
+            if patient["form_status"] == "Pending": #depending on form_status instead of eligibility, 
+                    #but I need this to also be updated when a patient form is created (when the patient is basically created)
                 pending_forms += 1
+            if patient["form_status"] == "Complete": 
+                completed_forms += 1
+
+        
 
             values = [
                     patient.get("subject_id", "N/A"),
@@ -139,6 +145,7 @@ class PatientsView(QWidget):
                     patient.get("screener", "N/A"),
                     patient.get("schedule_date", "N/A"),
                     "Open",
+                    patient.get("form_status", "N/A")
                 ]
 
             for column_index, value in enumerate(values):
@@ -151,8 +158,8 @@ class PatientsView(QWidget):
                 self.table.setItem(row_index, column_index, item)
 
         self.total_patients_metric.value_label.setText(str(len(self.patients)))
-        self.pending_forms_metric.value_label.setText(str(pending_forms))
-        self.ready_exports_metric.value_label.setText("0")
+        self.pending_forms_metric.value_label.setText(str(pending_forms)) #will update this, decrease by one when manual review (mark complete) button is pressed
+        self.ready_exports_metric.value_label.setText(str(completed_forms)) #will update this, when manual review is complete by 1.
 
     def open_new_patient_dialog(self) -> None:
         dialog = NewPatientDialog(self)

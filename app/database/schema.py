@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS patients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     subject_id TEXT NOT NULL UNIQUE,
     child_name TEXT,
+    form_status TEXT DEFAULT 'Pending',
     date_of_birth TEXT,
     sex TEXT,
     race TEXT,
