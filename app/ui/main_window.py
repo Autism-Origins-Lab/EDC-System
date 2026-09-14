@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from app.ui.sidebar import Sidebar
 from app.ui.topbar import TopBar
 from app.ui.views.patients_view import PatientsView
+from app.ui.views.settings_view import SettingsView
 
 # Export patient data to excel sheet or a patient summary 
 # An overview window total number of participants, how many are elgible, 
@@ -82,11 +83,9 @@ class MainWindow(QMainWindow):
                 )
             ),
             "Settings": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Settings",
-                    "Local database, backup, and app preferences will live here.",
-                )
+                SettingsView()
             ),
+            
         }
 
         body_layout.addWidget(self.sidebar)
