@@ -6,6 +6,10 @@ QMainWindow {
     font-size: 13px;
 }
 
+QLabel{
+    color: #1f2937;
+}
+
 QFrame#TopBar {
     background: #1d63ed;
 }
@@ -66,6 +70,38 @@ QPushButton#SecondaryButton {
     padding: 8px 12px;
 }
 
+QFrame#SettingsCard{
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+QComboBox {
+    background: #ffffff;
+    color: #111827;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 7px 10px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #111827;
+    selection-background-color: #eaf1ff;
+    selection-color: #1d63ed;
+    border: 1px solid #d1d5db;
+}
+
+QComboBox:hover{
+    border-color: #1d63ed;
+}
+
+QCheckBox {
+    color: #1f2937;
+    spacing: 8px;
+}
+
 QTableWidget {
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -98,4 +134,5 @@ QLabel#MetricValue {
 QLabel#Muted {
     color: #6b7280;
 }
+
 """

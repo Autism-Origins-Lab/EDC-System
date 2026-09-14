@@ -46,7 +46,8 @@ class PatientsView(QWidget):
         header.addLayout(title_block)
         header.addStretch()
         header.addWidget(new_patient)
-#change view -> visuals
+
+        #change view -> visuals
         metrics = QHBoxLayout()
         metrics.setSpacing(20)
         self.total_patients_metric = self._metric("Total patients", "0", "#5243FA")
