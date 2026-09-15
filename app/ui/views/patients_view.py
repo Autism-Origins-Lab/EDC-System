@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -21,6 +22,7 @@ class PatientsView(QWidget):
     def __init__(self):
         super().__init__()
         self.patients: list[dict] = []
+        self.current_sort = "Newest First"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 28, 28, 18)
@@ -66,6 +68,17 @@ class PatientsView(QWidget):
         filter_button = QPushButton("Filter")
         filter_button.setObjectName("SecondaryButton")
         filter_button.setCursor(Qt.PointingHandCursor)
+
+        filter_menu = QMenu(self)
+        filter_menu.addAction("Name (A-Z)", lambda: self.apply_sort("Name (A-Z)"))
+        filter_menu.addAction("Name (Z-A)", lambda: self.apply_sort("Name (Z-A)"))
+        filter_menu.addAction("Eligibility (Yes First)", lambda: self.apply_sort("Eligibility (Yes First)"))
+        filter_menu.addAction("Eligibility (No First)", lambda: self.apply_sort("Eligibility (No First)"))
+        filter_menu.addAction("Schedule Date (Earliest First)", lambda: self.apply_sort("Schedule Date (Earliest First)"))
+        filter_menu.addAction("Schedule Date (Latest First)", lambda: self.apply_sort("Schedule Date (Latest First)"))
+        filter_button.setMenu(filter_menu)
+
+        # Sorting options added to a filter menu
 
         controls.addWidget(self.table_search, 1)
         controls.addWidget(filter_button)
@@ -119,10 +132,18 @@ class PatientsView(QWidget):
 
         box.value_label = value
         return box
+    
+    def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic
+        self.current_sort = sort_choice
+        self.load_patients()
 
     def load_patients(self) -> None:
         search_text = self.table_search.text()
-        self.patients = search_patients(search_text) if search_text.strip() else list_patients()
+        self.patients = (
+            search_patients(search_text, sort_by=self.current_sort)
+            if search_text.strip()
+            else list_patients(sort_by=self.current_sort)
+    )
 
         self.table.setRowCount(len(self.patients))
 
