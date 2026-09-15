@@ -3,7 +3,11 @@ import sqlite3
 from app.database.connection import get_connection
 
 PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race", "form_status"}
-
+#2 ways to fix:
+"""
+1. merge database 
+2. add eligibility to patient forms.
+"""
 #command to check database name: python -c "from app.database.connection import get_connection; m = get_connection(); c = m.__enter__(); print(dict(c.execute('PRAGMA database_list').fetchone())['file']); m.__exit__(None, None, None)"
 def list_patients() -> list[dict]:
     with get_connection() as connection:

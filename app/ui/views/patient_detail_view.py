@@ -61,10 +61,10 @@ class PatientDetailView(QDialog):
 
         self.mark_complete_button.clicked.connect(self.mark_or_unmark_completion)
         layout.addWidget(self.mark_complete_button)
-        self.refresh_button_state
+        self.refresh_button_state()
 
 
-
+ 
     
         """
         Problems:
@@ -82,17 +82,18 @@ class PatientDetailView(QDialog):
             }}
         """
     def mark_or_unmark_completion(self) -> None: #function to set the status as Pending or Complete.
-        new_status = "Pending" if self.is_complete else "Complete"
-       # self.patient["form_status"] = new_status
+        new_status = "Pending" if self.is_complete() else "Complete"
+        self.patient = self.patient or {}
+        self.patient["form_status"] = new_status
         update_patient_form(self.patient_id, new_status)
         self.form_status_label.setText(new_status)
 
-        self.refresh_button_state
+        self.refresh_button_state()
 
 
     def refresh_button_state(self) -> None: #UI checks if a patient is eligible & if the form has already been marked as complete.
-         eligible = self.is_eligible
-         complete = self.is_complete
+         eligible = self.is_eligible()
+         complete = self.is_complete()
 
          if not eligible:
               self.mark_complete_button.setEnabled(False)
@@ -115,7 +116,7 @@ class PatientDetailView(QDialog):
          return False
          
     def is_complete(self):
-           current_status = self.patient.get("form_progress") if self.patient else None
+           current_status = self.patient.get("form_status") if self.patient else None
            if current_status == "Complete":
                 return True
            return False
@@ -135,8 +136,8 @@ class PatientDetailView(QDialog):
 
         patient = self.patient or {}
 
-        form_status_label = QLabel(patient.get("form_status"))
-        eligibility_label = QLabel(patient.get("eligibility") or "Telephone Screening Not Working") #issue
+        self.form_status_label = QLabel(patient.get("form_status") or "Pending")
+        self.eligibility_label = QLabel(patient.get("eligibility") or "Telephone Screening Not Working") #issue
         
 
         form.addRow("Subject ID", QLabel(patient.get("subject_id", "")))
@@ -144,8 +145,8 @@ class PatientDetailView(QDialog):
         form.addRow("Date of Birth", QLabel(patient.get("date_of_birth") or "Not entered"))
         form.addRow("Sex", QLabel(patient.get("sex") or "Not entered"))
         form.addRow("Race", QLabel(patient.get("race") or "Not entered"))
-        form.addRow("Eligibility", eligibility_label) 
-        form.addRow("Form Status", form_status_label) #add the label to display whether this form is pending or complete
+        form.addRow("Eligibility", self.eligibility_label) 
+        form.addRow("Form Status", self.form_status_label) #add the label to display whether this form is pending or complete
 
         layout.addLayout(form)
         layout.addStretch()

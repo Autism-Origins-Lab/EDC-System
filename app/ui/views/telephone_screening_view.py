@@ -31,7 +31,7 @@ class TelephoneScreeningView(QWidget):
         self.eligibility_combo = QComboBox()
         #I noticed that the telephone screening had the values "", "Yes", "No" which is different from the database.
         #Switched to
-        self.eligibility_combo.addItems(["Yes", "No"])
+        self.eligibility_combo.addItems(["Not started", "Yes", "No"])
         self.high_risk_checkbox = QCheckBox("High familial risk")
         self.low_risk_checkbox = QCheckBox("Low familial risk")
 
