@@ -89,6 +89,8 @@ class TelephoneScreeningView(QWidget):
 
         self.initials_input.setText(data.get("consent_initials") or "")
 
+        eligibility_status = self.eligibility_combo.currentText()
+
     def collect_data(self) -> dict:
         consent_text = self.verbal_consent_combo.currentText()
 
@@ -103,7 +105,7 @@ class TelephoneScreeningView(QWidget):
             "screening_date": self.screening_date_input.text().strip(),
             "appointment_date": self.appointment_date_input.text().strip(),
             "screener": self.screener_input.text().strip(),
-            "eligibility": self.eligibility_combo.currentText(),
+            "eligibility": self.eligibility_status,
             "high_familial_risk": int(self.high_risk_checkbox.isChecked()),
             "low_familial_risk": int(self.low_risk_checkbox.isChecked()),
             "schedule_date": self.schedule_date_input.text().strip(),
@@ -114,8 +116,9 @@ class TelephoneScreeningView(QWidget):
         }
 
     def save(self) -> None:
+        data = self.collect_data()
+        update_patient_eligibility(self.patient_id, data.get("eligibility"))
         save_telephone_screening(self.patient_id, self.collect_data())
-        update_patient_eligibility(self.patient_id, self.eligibility_combo.currentText()) #set the patient id
 
 
         QMessageBox.information(

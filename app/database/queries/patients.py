@@ -141,7 +141,7 @@ I need this function in the telephone screening, so eligibility is actually upda
 Alphabetical, eligibility, scheduling date 
 Search  to actually search up patients 
 '''
-def update_patient_eligibility(patient_id: int, status: str) -> None: #can't mark eligible on certain conditions
+def update_patient_eligibility(patient_id: int, status: str) -> None: #can't mark eligible on certain conditions TBA
   with get_connection() as connection:
         cursor = connection.execute(
                 """
