@@ -152,5 +152,6 @@ def update_patient_eligibility(patient_id: int, status: str) -> None: #can't mar
                 """,
                 (status, patient_id),
             )
+        connection.commit()        
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
