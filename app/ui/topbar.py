@@ -18,7 +18,7 @@ class TopBar(QFrame):
 
         search = QLineEdit()
         search.setObjectName("GlobalSearch")
-        search.setPlaceholderText("Search patients, forms, exports")
+        search.setPlaceholderText("Search for a specific patient (Last name, ID)")
         search.setFixedWidth(420)
 
         layout.addWidget(title)

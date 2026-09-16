@@ -10,9 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 """Issues I want to consider:
-1. the mark complete button should be completely independent from eligibility. If it is marked complete, then it should be put into a ready export.
-    -> I think i might need to add another variable called "complete" form in the data base.
-    ///
+1. make updates happen when overview clicked.
 3. a section to review all of the form inputs & section before finalizing changes
 4. when a form is "complete" and marked ready to export, and i want to make changes to it, it should update what needs to be exported already.
 2. what fields need to be filled out for something to be marked complete? so it also does it automatically? worry abt later
@@ -54,6 +52,7 @@ class PatientDetailView(QDialog):
         tabs.addTab(MedicalHistoryView(patient_id), "Medical History")
         tabs.addTab(FamilyMedicalHistoryView(patient_id), "Family Medical History")
         tabs.addTab(ProcedureScheduleView(patient_id), "Procedure Schedule")
+        tabs.currentChanged.connect(self.refresh_overview)
         layout.addWidget(tabs)
 
         #adding a mark complete button so that it's marked complete for manual review
@@ -131,6 +130,14 @@ class PatientDetailView(QDialog):
         self.eligibility_label.setText(self.patient.get("eligibility") or "Not started")
         self.form_status_label.setText(self.patient.get("form_status") or "Pending")
         self.refresh_button_state() #calls the UI change to the button after new status
+
+    def refresh_overview(self, index: int):
+         if index == 0:
+            self.patient = get_patient(self.patient_id) or {}
+            self.name_label.setText(self.patient.get("child_name") or "Not started")
+            self.birth_label.setText(self.patient.get("date_of_birth") or "Pending")
+            self.sex_label.setText(self.patient.get("sex") or "Not started")
+            self.race_label.setText(self.patient.get("race") or "Pending")
          
 
     def _build_overview(self) -> QWidget:
@@ -141,14 +148,18 @@ class PatientDetailView(QDialog):
         patient = self.patient or {}
 
         self.form_status_label = QLabel(patient.get("form_status") or "Pending")
-        self.eligibility_label = QLabel(patient.get("eligibility") or "Not Evaluated") #issue
+        self.eligibility_label = QLabel(patient.get("eligibility") or "Not evaluated") 
+        self.name_label = QLabel(patient.get("child_name") or "Not entered")
+        self.birth_label = QLabel(patient.get("date_of_birth") or "Not entered")
+        self.sex_label = QLabel(patient.get("sex") or "Not entered")
+        self.race_label = QLabel(patient.get("race") or "Not entered")
         
 
         form.addRow("Subject ID", QLabel(patient.get("subject_id", "")))
-        form.addRow("Child Name", QLabel(patient.get("child_name") or "Not entered"))
-        form.addRow("Date of Birth", QLabel(patient.get("date_of_birth") or "Not entered"))
-        form.addRow("Sex", QLabel(patient.get("sex") or "Not entered"))
-        form.addRow("Race", QLabel(patient.get("race") or "Not entered"))
+        form.addRow("Child Name", self.name_label)
+        form.addRow("Date of Birth", self.birth_label)
+        form.addRow("Sex", self.sex_label)
+        form.addRow("Race", self.race_label)
         form.addRow("Eligibility", self.eligibility_label) 
         form.addRow("Form Status", self.form_status_label) #add the label to display whether this form is pending or complete
 

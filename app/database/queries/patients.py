@@ -17,7 +17,7 @@ def list_patients() -> list[dict]:
                 p.id,
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
-                COALESCE(ts.eligibility, 'Not Evaluated') AS eligibility,
+                COALESCE(ts.eligibility, 'Not evaluated') AS eligibility,
                 COALESCE(p.form_status, 'Pending') AS form_status,
                 COALESCE(ts.screener, '') AS screener,
                 COALESCE(ts.schedule_date, '') AS schedule_date
@@ -72,7 +72,7 @@ def update_patient(patient_id: int, data: dict) -> None:
     assignments = ", ".join(f"{field} = ?" for field in fields)
     values = [data[field] for field in fields] + [patient_id]
 
-    with get_connection() as connection:
+    with sqlite3.connect("data/patient_data.db") as connection:
         connection.execute(
             f"""
             UPDATE patients
@@ -141,11 +141,6 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
 
-'''
-I need this function in the telephone screening, so eligibility is actually updated.
-Alphabetical, eligibility, scheduling date 
-Search  to actually search up patients 
-'''
 def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None: #can't mark eligible on certain conditions TBA
   with get_connection() as connection:
         cursor = connection.execute(
