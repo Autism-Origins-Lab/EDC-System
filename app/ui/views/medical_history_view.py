@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
     QWidget,
-    QtPointing
 )
 
 from app.database.queries.forms import get_medical_history, save_medical_history

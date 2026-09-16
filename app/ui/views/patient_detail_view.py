@@ -38,6 +38,9 @@ class PatientDetailView(QDialog):
         self.patient_id = patient_id
         self.patient = get_patient(patient_id)
 
+        self.telephone_screening_view = TelephoneScreeningView(self.patient_id)
+        self.telephone_screening_view.screening_saved.connect(self.refresh_data)
+
         subject_id = self.patient["subject_id"] if self.patient else str(patient_id)
         self.setWindowTitle(f"Patient {subject_id}")
         self.resize(900, 680)
@@ -46,14 +49,12 @@ class PatientDetailView(QDialog):
 
         tabs = QTabWidget()
         tabs.addTab(self._build_overview(), "Overview")
-        tabs.addTab(TelephoneScreeningView(patient_id), "Telephone Screening")
+        tabs.addTab(self.telephone_screening_view, "Telephone Screening")
         tabs.addTab(ScreeningQuestionnaireView(patient_id), "Screening Questionnaire")
         tabs.addTab(MedicalHistoryView(patient_id), "Medical History")
         tabs.addTab(FamilyMedicalHistoryView(patient_id), "Family Medical History")
         tabs.addTab(ProcedureScheduleView(patient_id), "Procedure Schedule")
         layout.addWidget(tabs)
-
-        tabs.currentChanged.connect(self.refresh_data)
 
         #adding a mark complete button so that it's marked complete for manual review
         self.mark_complete_button = QPushButton()
@@ -125,12 +126,11 @@ class PatientDetailView(QDialog):
                 return True
            return False
     
-    def refresh_data(self, index: int): #function to refresh the overview tab with the new updated form status & eligibility
-         if index == 0:  #check if the tab is the overview.
-            self.patient = get_patient(self.patient_id) or {}
-            self.eligibility_label.setText(self.patient.get("eligibility") or "Not started")
-            self.form_status_label.setText(self.patient.get("form_status") or "Pending")
-            self.refresh_button_state() #calls the UI change to the button after new status
+    def refresh_data(self, *args) -> None: #function to refresh the overview tab with the new updated form status & eligibility
+        self.patient = get_patient(self.patient_id) or {}
+        self.eligibility_label.setText(self.patient.get("eligibility") or "Not started")
+        self.form_status_label.setText(self.patient.get("form_status") or "Pending")
+        self.refresh_button_state() #calls the UI change to the button after new status
          
 
     def _build_overview(self) -> QWidget:

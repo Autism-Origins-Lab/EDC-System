@@ -1,4 +1,5 @@
 from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,6 +16,7 @@ from app.database.queries.patients import update_patient_eligibility #to set eli
 
 
 class TelephoneScreeningView(QWidget):
+    screening_saved = Signal()
     def __init__(self, patient_id: int):
         super().__init__()
         self.patient_id = patient_id
@@ -127,5 +129,4 @@ class TelephoneScreeningView(QWidget):
             "Saved",
             "Telephone screening saved successfully.",
         )
-
-    
+        self.screening_saved.emit() #signals complete, so that the button can update immediately after save is pressed.

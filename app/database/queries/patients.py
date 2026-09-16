@@ -168,7 +168,7 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
                         """
                         INSERT INTO telephone_screenings (patient_id, eligibility)
                         VALUES (?, ?)
-                        """
+                        """,
                        (patient_id, eligibility_status),
                     )
         connection.commit()        
