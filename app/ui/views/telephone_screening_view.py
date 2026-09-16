@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -31,7 +32,7 @@ class TelephoneScreeningView(QWidget):
         self.eligibility_combo = QComboBox()
         #I noticed that the telephone screening had the values "", "Yes", "No" which is different from the database.
         #Switched to
-        self.eligibility_combo.addItems(["Not started", "Yes", "No"])
+        self.eligibility_combo.addItems(["Not Evaluated", "Yes", "No"])
         self.high_risk_checkbox = QCheckBox("High familial risk")
         self.low_risk_checkbox = QCheckBox("Low familial risk")
 
@@ -57,6 +58,7 @@ class TelephoneScreeningView(QWidget):
         form.addRow("Consent Initials", self.initials_input)
 
         self.save_button = QPushButton("Save Telephone Screening")
+        self.save_button.setCursor(Qt.PointingHandCursor)
         self.save_button.setObjectName("PrimaryButton") #changed button so it looks consistent 
         self.save_button.clicked.connect(self.save)
 

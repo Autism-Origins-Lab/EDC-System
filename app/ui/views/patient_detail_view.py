@@ -68,7 +68,7 @@ class PatientDetailView(QDialog):
     
         """
         Problems:
-        1. The first loop never exits even if you mark it eligible, because "eligibility" is always empty.
+        1. The button doesn't reset automatically, you need to go to overview!
         """
 
     @staticmethod
@@ -103,10 +103,14 @@ class PatientDetailView(QDialog):
               self.mark_complete_button.setEnabled(True)
               self.mark_complete_button.setStyleSheet(self.button_style("#D82454"))
               self.mark_complete_button.setText("Unmark Complete")
+              self.mark_complete_button.setCursor(Qt.PointingHandCursor)
+
          else:
             self.mark_complete_button.setEnabled(True)
             self.mark_complete_button.setStyleSheet(self.button_style("#44CCAA")) 
             self.mark_complete_button.setText("Mark Complete")
+            self.mark_complete_button.setCursor(Qt.PointingHandCursor)
+
     
 
     def is_eligible(self):
@@ -137,7 +141,7 @@ class PatientDetailView(QDialog):
         patient = self.patient or {}
 
         self.form_status_label = QLabel(patient.get("form_status") or "Pending")
-        self.eligibility_label = QLabel(patient.get("eligibility") or "Telephone Screening Not Working") #issue
+        self.eligibility_label = QLabel(patient.get("eligibility") or "Not Evaluated") #issue
         
 
         form.addRow("Subject ID", QLabel(patient.get("subject_id", "")))
