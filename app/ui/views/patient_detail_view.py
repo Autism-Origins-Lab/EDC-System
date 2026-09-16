@@ -64,12 +64,7 @@ class PatientDetailView(QDialog):
         self.refresh_button_state()
 
 
- 
-    
-        """
-        Problems:
-        1. The button doesn't reset automatically, you need to go to overview!
-        """
+
 
     @staticmethod
     def button_style(bg_color: str) -> str:
@@ -161,7 +156,7 @@ class PatientDetailView(QDialog):
         form.addRow("Sex", self.sex_label)
         form.addRow("Race", self.race_label)
         form.addRow("Eligibility", self.eligibility_label) 
-        form.addRow("Form Status", self.form_status_label) #add the label to display whether this form is pending or complete
+        form.addRow("Form Status", self.form_status_label)
 
         layout.addLayout(form)
         layout.addStretch()
