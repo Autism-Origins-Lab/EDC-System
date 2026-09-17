@@ -120,7 +120,7 @@ class PatientsView(QWidget):
         box.value_label = value
         return box
 
-    def load_patients(self) -> None:
+    def load_patients(self, patient_list) -> None: #fix this 
         search_text = self.table_search.text()
         self.patients = search_patients(search_text) if search_text.strip() else list_patients()
 
@@ -148,6 +148,7 @@ class PatientsView(QWidget):
                     patient.get("form_status", "N/A")
                 ]
 
+        if not patient_list:
             for column_index, value in enumerate(values):
                 item = QTableWidgetItem(str(value) if value is not None else "")
                 item.setForeground(Qt.GlobalColor.black)
@@ -156,6 +157,8 @@ class PatientsView(QWidget):
                     item.setTextAlignment(Qt.AlignCenter)
                 
                 self.table.setItem(row_index, column_index, item)
+        else:
+            fo
 
         self.total_patients_metric.value_label.setText(str(len(self.patients)))
         self.pending_forms_metric.value_label.setText(str(pending_forms)) #will update this, decrease by one when manual review (mark complete) button is pressed

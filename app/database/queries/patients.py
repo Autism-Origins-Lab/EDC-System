@@ -19,7 +19,7 @@ def list_patients() -> list[dict]:
                 COALESCE(p.child_name, '') AS child_name,
                 COALESCE(ts.eligibility, 'Not evaluated') AS eligibility,
                 COALESCE(p.form_status, 'Pending') AS form_status,
-                COALESCE(ts.screener, '') AS screener,
+                COALESCE(ts.screener, '') AS screener, 
                 COALESCE(ts.schedule_date, '') AS schedule_date
             FROM patients p
             LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
@@ -140,6 +140,12 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
         connection.commit()        
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
+
+
+#patient immediately uneligibile (seizure or medical reason OR 3+ months old) -> mark reason
+#age should be in months 
+#if patient is 'No' for eligibility, dropdown textbox for reason why
+
 
 def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None: #can't mark eligible on certain conditions TBA
   with get_connection() as connection:
