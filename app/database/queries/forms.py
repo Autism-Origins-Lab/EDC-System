@@ -103,7 +103,7 @@ def _filter_fields(table_name: str, data: dict) -> dict:
     allowed_fields = FORM_FIELDS[table_name]
     return {key: value for key, value in data.items() if key in allowed_fields}
 
-
+# Universal Save Function --> Database
 def _save_one_to_one_form(table_name: str, patient_id: int, data: dict) -> None:
     fields = _filter_fields(table_name, data)
 
@@ -136,38 +136,145 @@ def _get_one_to_one_form(table_name: str, patient_id: int) -> dict | None:
 
     return dict(row) if row else None
 
-# save Mullen once done
-def save_mullen_assessment(patienti_id: int, data: dict) -> None:
-    _save_one_to_one_form("mullen")
+# Mullen Assessment
+def save_mullen_assessment(patient_id: int, data: dict) -> None:
+    invalid_domains = set(data) - set(MULLEN_DOMAINS)
+    if invalid_domains:
+        invalid = ", ".join(sorted(invalid_domains))
+        raise ValueError(f"Unknown Mullen domain(s): {invalid}")
+
+    with get_connection() as connection:
+        assessment = connection.execute(
+            """
+            SELECT id
+            FROM mullen_assessments
+            WHERE patient_id = ?
+            ORDER BY id
+            LIMIT 1
+            """,
+            (patient_id,),
+        ).fetchone()
+
+        if assessment:
+            assessment_id = assessment["id"]
+            connection.execute(
+                """
+                UPDATE mullen_assessments
+                SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (assessment_id,),
+            )
+        else:
+            cursor = connection.execute(
+                """
+                INSERT INTO mullen_assessments (patient_id)
+                VALUES (?)
+                """,
+                (patient_id,),
+            )
+            assessment_id = cursor.lastrowid
+
+        for domain in MULLEN_DOMAINS:
+            if domain not in data:
+                continue
+
+            score_data = data[domain]
+            if not isinstance(score_data, dict):
+                raise TypeError(f"Scores for {domain} must be a dictionary.")
+
+            invalid_fields = set(score_data) - set(MULLEN_SCORE_FIELDS)
+            if invalid_fields:
+                invalid = ", ".join(sorted(invalid_fields))
+                raise ValueError(f"Unknown score field(s) for {domain}: {invalid}")
+
+            values = [score_data.get(field) for field in MULLEN_SCORE_FIELDS]
+            existing_score = connection.execute(
+                """
+                SELECT id
+                FROM mullen_scores
+                WHERE mullen_assessments_id = ? AND domain = ?
+                ORDER BY id
+                LIMIT 1
+                """,
+                (assessment_id, domain),
+            ).fetchone()
+
+            if existing_score:
+                connection.execute(
+                    """
+                    UPDATE mullen_scores
+                    SET raw_score = ?,
+                        t_score = ?,
+                        band_of_error = ?,
+                        percentile_rank = ?,
+                        descriptive_category = ?,
+                        age_equivalence = ?
+                    WHERE id = ?
+                    """,
+                    [*values, existing_score["id"]],
+                )
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO mullen_scores (
+                        mullen_assessments_id,
+                        domain,
+                        raw_score,
+                        t_score,
+                        band_of_error,
+                        percentile_rank,
+                        descriptive_category,
+                        age_equivalence
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [assessment_id, domain, *values],
+                )
 
 
+def get_mullen_assessment(patient_id: int) -> dict:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT ms.*
+            FROM mullen_scores ms
+            JOIN mullen_assessments ma
+              ON ma.id = ms.mullen_assessments_id
+            WHERE ma.patient_id = ?
+            ORDER BY ms.id
+            """,
+            (patient_id,),
+        ).fetchall()
+
+    return {row["domain"]: dict(row) for row in rows}
+
+
+# Telephone Screening
 def save_telephone_screening(patient_id: int, data: dict) -> None:
     _save_one_to_one_form("telephone_screenings", patient_id, data)
-
 
 def get_telephone_screening(patient_id: int) -> dict | None:
     return _get_one_to_one_form("telephone_screenings", patient_id)
 
 
+# Questionaire Screening
 def save_screening_questionnaire(patient_id: int, data: dict) -> None:
     _save_one_to_one_form("screening_questionnaires", patient_id, data)
-
 
 def get_screening_questionnaire(patient_id: int) -> dict | None:
     return _get_one_to_one_form("screening_questionnaires", patient_id)
 
-
+# Medical History
 def save_medical_history(patient_id: int, data: dict) -> None:
     _save_one_to_one_form("medical_histories", patient_id, data)
-
 
 def get_medical_history(patient_id: int) -> dict | None:
     return _get_one_to_one_form("medical_histories", patient_id)
 
-
+# Family Medical History
 def save_family_medical_history(patient_id: int, data: dict) -> None:
     _save_one_to_one_form("family_medical_histories", patient_id, data)
-
 
 def get_family_medical_history(patient_id: int) -> dict | None:
     return _get_one_to_one_form("family_medical_histories", patient_id)
@@ -225,7 +332,6 @@ PENDING_FORM_TABLES = {
     "Screening Questionnaire": ("screening_questionnaires", "Screening Questionnaire"),
     "Medical History": ("medical_histories", "Medical History"),
     "Family Medical History": ("family_medical_histories", "Family Medical History"),
-    # added new Mullen form
     "Mullen Assessment":("mullen_assessment", "Mullen Assessment")
 }
 

@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS mullen_scores(
   t_score INTEGER,
   band_of_error DECIMAL(5,2),
   percentile_rank INTEGER,
-  descriptive_category INTEGER,
+  descriptive_category TEXT,
   age_equivalence INTEGER,
 
 FOREIGN KEY (mullen_assessments_id) REFERENCES mullen_assessments(id) ON DELETE CASCADE
