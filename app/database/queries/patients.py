@@ -5,19 +5,20 @@ from app.database.connection import get_connection
 PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race", "form_status"}
 
 #command to check database name: python -c "from app.database.connection import get_connection; m = get_connection(); c = m.__enter__(); print(dict(c.execute('PRAGMA database_list').fetchone())['file']); m.__exit__(None, None, None)"
-def list_patients() -> list[dict]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            #added another column called form_progress that helps mark formed as Pending or Complete.
+#added another column called form_progress that helps mark formed as Pending or Complete.
             #a form is pending when a new patient is added to the database. a form is complete when it is marked complete and ready to export. 
             #FOR LATER: a patient's form is marked complete when they are ELIGIBLE and certain details are filled out. 
             #COALESCE returns the first non null value.
+def list_patients() -> list[dict]:
+    with get_connection() as connection:
+        rows = connection.execute(
             """
             SELECT
                 p.id,
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
                 COALESCE(ts.eligibility, 'Not started') AS eligibility,
+                COALESCE(ts.eligibility_comment, '') AS comment,
                 COALESCE(p.form_status, 'Pending') AS form_status,
                 COALESCE(ts.screener, '') AS screener,
                 COALESCE(ts.schedule_date, '') AS schedule_date
@@ -97,14 +98,13 @@ def search_patients(search_text: str) -> list[dict]:
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
                 COALESCE(ts.eligibility, 'Not started') AS eligibility,
+                COALESCE(ts.eligibility_comment, '') AS comment,
                 COALESCE(p.form_status, 'Pending') AS form_status,
                 COALESCE(ts.screener, '') AS screener,
                 COALESCE(ts.schedule_date, '') AS schedule_date
-                FROM patients p
-                LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
-                ORDER BY p.created_at DESC, p.id DESC
             FROM patients p
-            LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
+            LEFT JOIN telephone_screenings ts
+                ON ts.patient_id = p.id
             WHERE
                 LOWER(p.subject_id) LIKE ?
                 OR LOWER(COALESCE(p.child_name, '')) LIKE ?
@@ -112,10 +112,10 @@ def search_patients(search_text: str) -> list[dict]:
                 OR LOWER(COALESCE(p.form_status, 'Pending')) LIKE ?
                 OR LOWER(COALESCE(ts.screener, '')) LIKE ?
                 OR LOWER(COALESCE(ts.schedule_date, '')) LIKE ?
+                OR LOWER(COALESCE(ts.eligibility_comment, '')) LIKE ?
             ORDER BY p.created_at DESC, p.id DESC
-                
             """,
-            (pattern, pattern, pattern, pattern, pattern, pattern),
+            (pattern, pattern, pattern, pattern, pattern, pattern, pattern),
         ).fetchall()
 
     return [dict(row) for row in rows]
@@ -132,25 +132,6 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
                 """,
                 (status, patient_id),
             #for later, I want to make it so that you are only able to mark complete manually IF the patient is eligible.
-            )
-        if cursor.rowcount == 0:
-            raise ValueError(f"There is no patient with id {patient_id}.")
-
-'''
-I need this function in the telephone screening, so eligibility is actually updated.
-Alphabetical, eligibility, scheduling date 
-Search  to actually search up patients 
-'''
-def update_patient_eligibility(patient_id: int, status: str) -> None: #can't mark eligible on certain conditions
-  with get_connection() as connection:
-        cursor = connection.execute(
-                """
-                UPDATE patients
-                SET eligibility = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-                """,
-                (status, patient_id),
             )
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")

@@ -8,6 +8,7 @@ from app.database.queries.patients import (
     search_patients,
     update_patient,
 )
+from app.database.queries.forms import save_telephone_screening
 
 
 def test_create_patient_writes_record(temp_database):
@@ -37,3 +38,15 @@ def test_list_patients_returns_dashboard_rows(temp_database):
 def test_search_patients_matches_subject_id(temp_database):
     create_patient("1001")
     assert search_patients("1001")[0]["subject_id"] == "1001"
+
+
+def test_search_patients_returns_and_matches_ineligibility_comment(temp_database):
+    patient_id = create_patient("1001")
+    save_telephone_screening(
+        patient_id,
+        {"eligibility": "No", "eligibility_comment": "Unable to attend visits"},
+    )
+
+    result = search_patients("unable to attend")
+
+    assert result[0]["comment"] == "Unable to attend visits"

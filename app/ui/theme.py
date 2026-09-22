@@ -7,9 +7,12 @@ QMainWindow {
 }
 
 QLabel{
-    color: #1f2937;
+    color: #FFFFFF;
 }
 
+QTabs{
+    alignment: center;
+}
 QFrame#TopBar {
     background: #1d63ed;
 }
@@ -77,28 +80,25 @@ QFrame#SettingsCard{
     padding: 16px;
 }
 
-QComboBox {
-    background: #ffffff;
-    color: #111827;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 7px 10px;
-}
-
-QComboBox QAbstractItemView {
-    background-color: #ffffff;
-    color: #111827;
-    selection-background-color: #eaf1ff;
-    selection-color: #1d63ed;
-    border: 1px solid #d1d5db;
-}
-
 QComboBox:hover{
     border-color: #1d63ed;
 }
 
+QPushButton#MenuButton {
+    background: transparent;
+    color: #ffffff;
+    border: 0;
+    border-radius: 6px;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+QPushButton#MenuButton:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
 QCheckBox {
-    color: #1f2937;
+    color: #ffffff;
     spacing: 8px;
 }
 
