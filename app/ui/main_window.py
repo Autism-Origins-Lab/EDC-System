@@ -30,6 +30,8 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
+        self.topbar = TopBar()
+
         body = QFrame()
         body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
@@ -42,9 +44,12 @@ class MainWindow(QMainWindow):
         for placeholder_page in self.sidebar.findChildren(QWidget):
             placeholder_page.setCursor(Qt.PointingHandCursor)
 
+        self.patients_view = PatientsView()
+        self.topbar.patients_filtered.connect(self.patients_view.update_table)
+
         self.pages = QStackedWidget()
         self.section_indexes = {
-            "Patients": self.pages.addWidget(PatientsView()),
+            "Patients": self.pages.addWidget(self.patients_view),
             "Telephone Screening": self.pages.addWidget(
                 self._build_placeholder_page(
                     "Telephone Screening",
@@ -92,9 +97,20 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self.sidebar)
         body_layout.addWidget(self.pages, 1)
 
-        root_layout.addWidget(TopBar())
+        root_layout.addWidget(self.topbar)
         root_layout.addWidget(body, 1)
         self.setCentralWidget(root)
+
+        self.load_initial_data()
+
+    def load_initial_data(self) -> None:
+        try:
+            patients = get_all_patients()
+        except Exception:
+            patients = []
+
+        self.topbar.set_patients(patients)
+        self.patients_view.update_table(patients)
 
     def show_section(self, section: str) -> None:
         self.pages.setCurrentIndex(self.section_indexes[section])

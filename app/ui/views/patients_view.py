@@ -60,7 +60,8 @@ class PatientsView(QWidget):
 
         controls = QHBoxLayout()
         self.table_search = QLineEdit()
-        self.table_search.setPlaceholderText("Search patient table")
+        self.table_search.setPlaceholderText("Search patient table...")
+        self.table_search.setCursor(Qt.IBeamCursor)
         self.table_search.textChanged.connect(self.load_patients)
 
         filter_button = QPushButton("Filter")
@@ -120,25 +121,32 @@ class PatientsView(QWidget):
         box.value_label = value
         return box
 
-    def load_patients(self, patient_list) -> None: #fix this 
-        search_text = self.table_search.text()
-        self.patients = search_patients(search_text) if search_text.strip() else list_patients()
+    def load_patients(self) -> None: #fix this 
+        #patients from DB --> local search & updates view
+        search_text = self.table_search.text().strip()
+        patients = search_patients(search_text) if search_text else list_patients()
+        self.update_table(patients)
 
+    @Slot(list)
+    def update_table(self, patients: list[dict]) -> None:
+        #update table & metrics. TopBar signals
+        self.patients = patients
+        self.table.setSortingEnabled(False)
+        self.table.setRowCount(0)
         self.table.setRowCount(len(self.patients))
 
         pending_forms = 0
         completed_forms = 0 #not hardcoded
 
         for row_index, patient in enumerate(self.patients):
-            if patient["form_status"] == "Pending": #depending on form_status instead of eligibility, 
-                    #but I need this to also be updated when a patient form is created (when the patient is basically created)
+            status = patient.get("form_status", "Pending")
+            if status == "Pending": 
                 pending_forms += 1
-            if patient["form_status"] == "Complete": 
+            if status == "Complete": 
                 completed_forms += 1
 
         
-
-            values = [
+            row_values = [
                     patient.get("subject_id", "N/A"),
                     patient.get("child_name", "N/A"),
                     patient.get("eligibility", "N/A"),
@@ -148,21 +156,16 @@ class PatientsView(QWidget):
                     patient.get("form_status", "N/A")
                 ]
 
-        if not patient_list:
             for column_index, value in enumerate(values):
                 item = QTableWidgetItem(str(value) if value is not None else "")
                 item.setForeground(Qt.GlobalColor.black)
-                
-                if column_index == 5:
-                    item.setTextAlignment(Qt.AlignCenter)
-                
                 self.table.setItem(row_index, column_index, item)
-        else:
-            fo
+
+            
 
         self.total_patients_metric.value_label.setText(str(len(self.patients)))
-        self.pending_forms_metric.value_label.setText(str(pending_forms)) #will update this, decrease by one when manual review (mark complete) button is pressed
-        self.ready_exports_metric.value_label.setText(str(completed_forms)) #will update this, when manual review is complete by 1.
+        self.pending_forms_metric.value_label.setText(str(pending_forms)) 
+        self.ready_exports_metric.value_label.setText(str(completed_forms)) 
 
     def open_new_patient_dialog(self) -> None:
         dialog = NewPatientDialog(self)
