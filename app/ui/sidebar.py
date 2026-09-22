@@ -23,6 +23,7 @@ class Sidebar(QFrame):
             "Family History",
             "Imports",
             "Exports",
+            "Summary",
             "Settings",
         ]
 

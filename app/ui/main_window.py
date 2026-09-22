@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from app.ui.sidebar import Sidebar
 from app.ui.topbar import TopBar
 from app.ui.views.patients_view import PatientsView
+from app.ui.views.summary_view import PatientExportView
 
 # Export patient data to excel sheet or a patient summary 
 # An overview window total number of participants, how many are elgible, 
@@ -75,12 +76,7 @@ class MainWindow(QMainWindow):
                     "Spreadsheet import tools will live here after the core forms are stable.",
                 )
             ),
-            "Exports": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Exports",
-                    "Excel export controls will live here when exports are brought into the UI.",
-                )
-            ),
+            "Exports": self.pages.addWidget(PatientExportView()),
             "Settings": self.pages.addWidget(
                 self._build_placeholder_page(
                     "Settings",
