@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEasingCurve, QPropertyAnimation
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -12,17 +12,12 @@ from PySide6.QtWidgets import (
 from app.ui.sidebar import Sidebar
 from app.ui.topbar import TopBar
 from app.ui.views.patients_view import PatientsView
-
-# Export patient data to excel sheet or a patient summary 
-# An overview window total number of participants, how many are elgible, 
-# Being able to attach the EEG and their corresponding files to their data
-# A way to keep the infants age updated based on the time the file has been completed --> change action column
-# 
+from app.ui.views.settings_view import SettingsView
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("EDC System")
+        self.setWindowTitle("AOL Databse")
         self.resize(1280, 760)
 
         root = QWidget()
@@ -38,9 +33,17 @@ class MainWindow(QMainWindow):
         body_layout.setSpacing(0)
 
         self.sidebar = Sidebar()
+
+        self.sidebar_expanded = True
+        
+        self.sidebar_animation = QPropertyAnimation(self.sidebar,b"maximumWidth")
+
+        self.sidebar_animation.setDuration(250)
+        self.sidebar_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
+
         self.sidebar.section_selected.connect(self.show_section)
 
-    #Mouse changes on hover for each placeholder page, to make it look clickable.
+        #Mouse changes on hover for each placeholder page, to make it look clickable.
         for placeholder_page in self.sidebar.findChildren(QWidget):
             placeholder_page.setCursor(Qt.PointingHandCursor)
 
@@ -87,30 +90,35 @@ class MainWindow(QMainWindow):
                 )
             ),
             "Settings": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Settings",
-                    "Local database, backup, and app preferences will live here.",
-                )
+                SettingsView()
             ),
+            
         }
 
         body_layout.addWidget(self.sidebar)
         body_layout.addWidget(self.pages, 1)
 
+        self.topbar = TopBar()
+        self.topbar.menu_clicked.connect(self.toggle_sidebar)
+
         root_layout.addWidget(self.topbar)
         root_layout.addWidget(body, 1)
         self.setCentralWidget(root)
 
-        self.load_initial_data()
+    def toggle_sidebar(self) -> None:
+        collapsed_width = 0
+        expanded_width = 220
 
-    def load_initial_data(self) -> None:
-        try:
-            patients = get_all_patients()
-        except Exception:
-            patients = []
+        self.sidebar_animation.stop()
+        self.sidebar_animation.setStartValue(self.sidebar.width())
 
-        self.topbar.set_patients(patients)
-        self.patients_view.update_table(patients)
+        if self.sidebar_expanded:
+            self.sidebar_animation.setEndValue(collapsed_width)
+        else:
+            self.sidebar_animation.setEndValue(expanded_width)
+
+        self.sidebar_expanded = not self.sidebar_expanded
+        self.sidebar_animation.start()
 
     def show_section(self, section: str) -> None:
         self.pages.setCurrentIndex(self.section_indexes[section])

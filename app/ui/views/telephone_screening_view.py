@@ -25,16 +25,22 @@ class TelephoneScreeningView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(14)
 
-        form = QFormLayout()
+        self.form = QFormLayout()
 
         self.screening_date_input = QLineEdit()
         self.appointment_date_input = QLineEdit()
         self.screener_input = QLineEdit()
 
+        self.eligibility_comment_input = QLineEdit()
+        self.eligibility_comment_input.setPlaceholderText("Enter reason")
+        self.eligibility_comment_input.setVisible(False)
+
+
         self.eligibility_combo = QComboBox()
         #I noticed that the telephone screening had the values "", "Yes", "No" which is different from the database.
         #Switched to
         self.eligibility_combo.addItems(["Not evaluated", "Yes", "No"])
+        self.eligibility_combo.currentTextChanged.connect(self.update_comment_visibility)
         self.high_risk_checkbox = QCheckBox("High familial risk")
         self.low_risk_checkbox = QCheckBox("Low familial risk")
 
@@ -47,28 +53,33 @@ class TelephoneScreeningView(QWidget):
 
         self.initials_input = QLineEdit()
 
-        form.addRow("Screening Date", self.screening_date_input)
-        form.addRow("Appointment Date", self.appointment_date_input)
-        form.addRow("Screener", self.screener_input)
-        form.addRow("Eligible for Participation", self.eligibility_combo)
-        form.addRow("", self.high_risk_checkbox)
-        form.addRow("", self.low_risk_checkbox)
-        form.addRow("Schedule Date", self.schedule_date_input)
-        form.addRow("Birthweight", self.birthweight_input)
-        form.addRow("Gestational Age", self.gestational_input)
-        form.addRow("Verbal Consent", self.verbal_consent_combo)
-        form.addRow("Consent Initials", self.initials_input)
+        self.form.addRow("Screening Date", self.screening_date_input)
+        self.form.addRow("Appointment Date", self.appointment_date_input)
+        self.form.addRow("Screener", self.screener_input)
+        self.form.addRow("Eligible for Participation", self.eligibility_combo)
 
+        self.form.addRow("Comment", self.eligibility_comment_input)
+
+        self.form.addRow("", self.high_risk_checkbox)
+        self.form.addRow("", self.low_risk_checkbox)
+        self.form.addRow("Schedule Date", self.schedule_date_input)
+        self.form.addRow("Birthweight", self.birthweight_input)
+        self.form.addRow("Gestational Age", self.gestational_input)
+        self.form.addRow("Verbal Consent", self.verbal_consent_combo)
+        self.form.addRow("Consent Initials", self.initials_input)
         self.save_button = QPushButton("Save Telephone Screening")
         self.save_button.setCursor(Qt.PointingHandCursor)
         self.save_button.setObjectName("PrimaryButton") #changed button so it looks consistent 
         self.save_button.clicked.connect(self.save)
 
-        layout.addLayout(form)
+        layout.addLayout(self.form)
         layout.addWidget(self.save_button)
         layout.addStretch()
 
         self.load_existing_data()
+
+    def update_comment_visibility(self, value: str) -> None:
+        self.form.setRowVisible(self.eligibility_comment_input, value == "No")
 
     def load_existing_data(self) -> None:
         data = get_telephone_screening(self.patient_id)
@@ -78,7 +89,9 @@ class TelephoneScreeningView(QWidget):
         self.screening_date_input.setText(data.get("screening_date") or "")
         self.appointment_date_input.setText(data.get("appointment_date") or "")
         self.screener_input.setText(data.get("screener") or "")
-        self.eligibility_combo.setCurrentText(data.get("eligibility") or "Not started")
+        self.eligibility_combo.setCurrentText(data.get("eligibility") or "")
+        self.eligibility_comment_input.setText(data.get("eligibility_comment") or "")
+        self.update_comment_visibility(self.eligibility_combo.currentText())
         self.high_risk_checkbox.setChecked(bool(data.get("high_familial_risk")))
         self.low_risk_checkbox.setChecked(bool(data.get("low_familial_risk")))
         self.schedule_date_input.setText(data.get("schedule_date") or "")
@@ -96,6 +109,7 @@ class TelephoneScreeningView(QWidget):
 
     def collect_data(self) -> dict:
         consent_text = self.verbal_consent_combo.currentText()
+        eligibility = self.eligibility_combo.currentText()
 
         if consent_text == "Yes":
             verbal_consent = 1
@@ -108,7 +122,12 @@ class TelephoneScreeningView(QWidget):
             "screening_date": self.screening_date_input.text().strip(),
             "appointment_date": self.appointment_date_input.text().strip(),
             "screener": self.screener_input.text().strip(),
-            "eligibility": self.eligibility_combo.currentText(),
+            "eligibility": eligibility,
+            "eligibility_comment": (
+                self.eligibility_comment_input.text().strip()
+                if eligibility == "No"
+                else ""
+            ),
             "high_familial_risk": int(self.high_risk_checkbox.isChecked()),
             "low_familial_risk": int(self.low_risk_checkbox.isChecked()),
             "schedule_date": self.schedule_date_input.text().strip(),
@@ -130,3 +149,4 @@ class TelephoneScreeningView(QWidget):
             "Telephone screening saved successfully.",
         )
         self.screening_saved.emit() #signals complete, so that the button can update immediately after save is pressed.
+    

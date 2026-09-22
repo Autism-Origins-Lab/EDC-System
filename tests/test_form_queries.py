@@ -20,3 +20,14 @@ def test_patient_dashboard_reflects_form_status(temp_database):
     patient_id = create_patient("1001")
     save_telephone_screening(patient_id, {"eligibility": "Yes", "screener": "RA One"})
     assert list_patients()[0]["eligibility"] == "Yes"
+
+
+def test_ineligibility_comment_is_saved_and_shown_on_dashboard(temp_database):
+    patient_id = create_patient("1001")
+    save_telephone_screening(
+        patient_id,
+        {"eligibility": "No", "eligibility_comment": "Age is outside the range"},
+    )
+
+    assert get_telephone_screening(patient_id)["eligibility_comment"] == "Age is outside the range"
+    assert list_patients()[0]["comment"] == "Age is outside the range"

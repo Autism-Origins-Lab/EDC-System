@@ -30,6 +30,9 @@ from app.ui.views.procedure_schedule_view import ProcedureScheduleView
 from app.ui.views.screening_questionnaire_view import ScreeningQuestionnaireView
 from app.ui.views.telephone_screening_view import TelephoneScreeningView
 
+# import Mullen class 
+from app.ui.views.mullen_view import MullenView
+
 class PatientDetailView(QDialog):
     def __init__(self, patient_id: int, parent=None):
         super().__init__(parent)
@@ -41,18 +44,19 @@ class PatientDetailView(QDialog):
 
         subject_id = self.patient["subject_id"] if self.patient else str(patient_id)
         self.setWindowTitle(f"Patient {subject_id}")
-        self.resize(900, 680)
+        self.resize(800, 800)
 
         layout = QVBoxLayout(self)
 
         tabs = QTabWidget()
+        tabs.setUsesScrollButtons(False)
         tabs.addTab(self._build_overview(), "Overview")
         tabs.addTab(self.telephone_screening_view, "Telephone Screening")
         tabs.addTab(ScreeningQuestionnaireView(patient_id), "Screening Questionnaire")
         tabs.addTab(MedicalHistoryView(patient_id), "Medical History")
         tabs.addTab(FamilyMedicalHistoryView(patient_id), "Family Medical History")
         tabs.addTab(ProcedureScheduleView(patient_id), "Procedure Schedule")
-        tabs.currentChanged.connect(self.refresh_overview)
+        tabs.addTab(MullenView(patient_id), "Mullen Assessment")
         layout.addWidget(tabs)
 
         #adding a mark complete button so that it's marked complete for manual review
