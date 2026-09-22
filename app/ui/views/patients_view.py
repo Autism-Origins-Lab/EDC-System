@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QAbstractItemView
 )
 
 from app.database.queries.patients import list_patients, search_patients
@@ -46,7 +47,8 @@ class PatientsView(QWidget):
         header.addLayout(title_block)
         header.addStretch()
         header.addWidget(new_patient)
-#change view -> visuals
+
+        #change view -> visuals
         metrics = QHBoxLayout()
         metrics.setSpacing(20)
         self.total_patients_metric = self._metric("Total patients", "0", "#5243FA")
@@ -71,9 +73,10 @@ class PatientsView(QWidget):
         controls.addWidget(filter_button)
 
         self.table = QTableWidget()
+        self.table.setSelectionMode(QAbstractItemView.NoSelection)
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(
-            ["Subject ID", "Child Name", "Eligibility", "Screener", "Schedule Date", "Actions"]
+            ["Subject ID", "Child Name", "Eligibility", "Screener", "Schedule Date", "Comment"]
         )
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -127,7 +130,7 @@ class PatientsView(QWidget):
         self.table.setRowCount(len(self.patients))
 
         pending_forms = 0
-        completed_forms = 0 #not hardcoded
+        completed_forms = 0 # not hardcoded
 
         for row_index, patient in enumerate(self.patients):
             if patient["form_status"] == "Pending": #depending on form_status instead of eligibility, 
@@ -136,16 +139,13 @@ class PatientsView(QWidget):
             if patient["form_status"] == "Complete": 
                 completed_forms += 1
 
-        
-
             values = [
                     patient.get("subject_id", "N/A"),
                     patient.get("child_name", "N/A"),
                     patient.get("eligibility", "N/A"),
                     patient.get("screener", "N/A"),
                     patient.get("schedule_date", "N/A"),
-                    "Open",
-                    patient.get("form_status", "N/A")
+                    patient.get("comment", ""),
                 ]
 
             for column_index, value in enumerate(values):

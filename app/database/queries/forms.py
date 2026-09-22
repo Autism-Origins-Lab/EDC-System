@@ -1,11 +1,35 @@
 from app.database.connection import get_connection
 
+MULLEN_DOMAINS=(
+    "gross_motor",
+    "visual_reception",
+    "fine_motor",
+    "receptive_language",
+    "expressive_language",
+)
+
+MULLEN_SCORE_FIELDS=(
+    "raw_score",
+    "t_score",
+    "band_of_error",
+    "percentile_rank",
+    "descriptive_category",
+    "age_equivalence",
+)
+
+MULLEN_FIELDS= {
+    f"{domain}_{field}"
+    for domain in MULLEN_DOMAINS
+    for field in MULLEN_SCORE_FIELDS
+}
+
 FORM_FIELDS = {
     "telephone_screenings": {
         "screening_date",
         "appointment_date",
         "screener",
         "eligibility",
+        "eligibility_comment",
         "high_familial_risk",
         "low_familial_risk",
         "schedule_date",
@@ -71,6 +95,7 @@ FORM_FIELDS = {
         "same_father_as_older_sibling",
         "same_mother_as_older_sibling",
     },
+    "mullen_assessments": MULLEN_FIELDS,
 }
 
 
@@ -110,6 +135,10 @@ def _get_one_to_one_form(table_name: str, patient_id: int) -> dict | None:
         ).fetchone()
 
     return dict(row) if row else None
+
+# save Mullen once done
+def save_mullen_assessment(patienti_id: int, data: dict) -> None:
+    _save_one_to_one_form("mullen")
 
 
 def save_telephone_screening(patient_id: int, data: dict) -> None:
@@ -196,6 +225,8 @@ PENDING_FORM_TABLES = {
     "Screening Questionnaire": ("screening_questionnaires", "Screening Questionnaire"),
     "Medical History": ("medical_histories", "Medical History"),
     "Family Medical History": ("family_medical_histories", "Family Medical History"),
+    # added new Mullen form
+    "Mullen Assessment":("mullen_assessment", "Mullen Assessment")
 }
 
 PROCEDURE_NAMES = ("Consents", "Recording", "Neuropsych")
