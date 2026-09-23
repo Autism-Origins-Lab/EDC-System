@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -14,12 +14,13 @@ from PySide6.QtWidgets import (
     QAbstractItemView
 )
 
-from app.database.queries.patients import list_patients, search_patients
+from app.database.queries.patients import list_patients
 from app.ui.views.new_patient_dialog import NewPatientDialog
 from app.ui.views.patient_detail_view import PatientDetailView
 
 
 class PatientsView(QWidget):
+    patient_data_changed = Signal()
     def __init__(self):
         super().__init__()
         self.patients: list[dict] = []
@@ -141,10 +142,9 @@ class PatientsView(QWidget):
         self.current_sort = sort_choice
         self.load_patients()
 
-    def load_patients(self) -> None: #fix this 
-        #patients from DB --> local search & updates view
-        search_text = self.table_search.text().strip()
-        patients = search_patients(search_text) if search_text else list_patients()
+    def load_patients(self) -> None: #I removed the table search because patients is sorted via filter menu
+        #search is now in topbar's global search..
+        patients = list_patients(sort_by=self.current_sort)
         self.update_table(patients)
 
     @Slot(list)
@@ -175,11 +175,12 @@ class PatientsView(QWidget):
                 ]
 
             for column_index, value in enumerate(values):
-                item = QTableWidgetItem(str(value) if value is not None else "")
+                item = QTableWidgetItem(str(value) if value is not None else "N/A")
                 item.setForeground(Qt.GlobalColor.black)
+                item.setData(Qt.UserRole, patient.get("id"))
                 self.table.setItem(row_index, column_index, item)
-
-            
+ 
+    
 
         self.total_patients_metric.value_label.setText(str(len(self.patients)))
         self.pending_forms_metric.value_label.setText(str(pending_forms)) 
@@ -190,6 +191,7 @@ class PatientsView(QWidget):
 
         if dialog.exec() == NewPatientDialog.DialogCode.Accepted:
             self.load_patients()
+            self.patient_data_changed.emit()
 
             if dialog.created_patient_id is not None:
                 self.show_patient_detail(dialog.created_patient_id)
@@ -204,3 +206,4 @@ class PatientsView(QWidget):
         dialog = PatientDetailView(patient_id, self)
         dialog.exec()
         self.load_patients()
+        self.patient_data_changed.emit()

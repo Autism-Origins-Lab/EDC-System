@@ -2,8 +2,6 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButto
 from PySide6.QtCore import Signal
 
 from app.config import APP_NAME
-from app.database.queries.patients import get_patient, update_patient_form
-
 
 class TopBar(QFrame):
     menu_clicked = Signal()
@@ -13,7 +11,6 @@ class TopBar(QFrame):
         super().__init__()
         self.setObjectName("TopBar")
         self.setFixedHeight(58)
-
         self.all_patients: list[dict] = [] #a place to store all the patients in a list. makes it easier to return & navigate
 
         layout = QHBoxLayout(self)
@@ -38,6 +35,7 @@ class TopBar(QFrame):
         layout.addWidget(title)
         layout.addStretch()
         layout.addWidget(search)
+
         #populate & update patient list to load 
     def set_patients(self, patients: list[dict]) -> None:
         self.all_patients = patients
@@ -46,21 +44,16 @@ class TopBar(QFrame):
     def filter_patients(self, search_text: str) -> None:
         self.search_working.emit()
         query = search_text.strip().lower()
-    
+
         if not query:
             self.patients_filtered.emit(self.all_patients)
             return
-        
+
         filtered_list = []
 
-        for patient in self.all_patients: 
-
-            if isinstance(patient, dict):
-                child_name =str(patient.get("child_name"), "").lower()
-                subject_id = str(patient.get("subject_id"), "").lower()
-            else:
-                child_name = str(getattr(patient.get("child_name"), "")).lower()
-                subject_id = str(getattr(patient.get("subject_id"), "")).lower()
+        for patient in self.all_patients:
+            child_name = str(patient.get("child_name") or "").lower()
+            subject_id = str(patient.get("subject_id") or "").lower()
 
             if "," in query:
                 parts = [p.strip() for p in query.split(",", 1)]
@@ -72,6 +65,6 @@ class TopBar(QFrame):
             else:
                 if query in child_name or query in subject_id:
                     filtered_list.append(patient)
-                    
+
         self.patients_filtered.emit(filtered_list) #I want this list to be sent to patients_view to displau the table as needed, when something is searched 
     
