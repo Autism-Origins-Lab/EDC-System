@@ -16,11 +16,10 @@ from PySide6.QtWidgets import (
 2. what fields need to be filled out for something to be marked complete? so it also does it automatically? worry abt later
 
 Accomplished:
-Added metric cards to display information in a friendlier way
+Added metric cards to display information in a friendlier way --> changed to donut chart. 
 Display form information below (Eligibility, Name, ID)
 Testing UI and changing cursor on elements that are clickable
-I created a mark eligibility button that manually marks a form complete, but I'm tweaking that because I realized that it could pose a lot of problems later on while testing it out
-Working on EDC system & more vizualizations 
+I created a mark eligibility button that manually marks a form complete, but I'm tweaking that -> 
 """
 
 from app.database.queries.patients import get_patient, update_patient_form

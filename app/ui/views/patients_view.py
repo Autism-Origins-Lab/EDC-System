@@ -42,18 +42,20 @@ class DonutChart(QWidget):
             thickness = side * 0.18
             margin = thickness/2+4
             rect = QRectF(margin, margin, side-2*margin, side-2*margin)
-            total = sum(value for _, value, _ in self._segments)
+
+
+            denom = self._center_value if self._center_value > 0 else sum(value for _, value, _ in self._segments)
             track_pen = QPen(QColor("#6A6969"), thickness)
             track_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
             painter.setPen(track_pen)
             painter.drawArc(rect, 0, 360*16)
 
-            if total > 0:
+            if denom > 0:
                 start_angle = 90*16
                 for _, value, color in self._segments:
                     if value <= 0:
                         continue
-                    span_angle = int(-(value/total) * 360 * 16)
+                    span_angle = int(-(value/denom) * 360 * 16)
                     pen = QPen(QColor(color), thickness)
                     pen.setCapStyle(Qt.PenCapStyle.FlatCap)
                     painter.setPen(pen)
@@ -251,7 +253,6 @@ class PatientsView(QWidget):
             [
                 ("Pending forms", pending_forms, "#D00B60"),
                 ("Ready exports", completed_forms, "#08AEA9"),
-                ("(edge case)", other_forms, "#5C5C5C"),
             ],
             center_value=len(self.patients),
         )
