@@ -1,10 +1,12 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
+    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -13,7 +15,11 @@ from PySide6.QtWidgets import (
     QAbstractItemView
 )
 
-from app.database.queries.patients import list_patients, search_patients
+from app.database.queries.patients import (
+    export_patients_to_csv,
+    list_patients,
+    search_patients,
+)
 from app.ui.views.new_patient_dialog import NewPatientDialog
 from app.ui.views.patient_detail_view import PatientDetailView
 
@@ -69,8 +75,14 @@ class PatientsView(QWidget):
         filter_button.setObjectName("SecondaryButton")
         filter_button.setCursor(Qt.PointingHandCursor)
 
+        export_csv_button = QPushButton("Export CSV")
+        export_csv_button.setObjectName("SecondaryButton")
+        export_csv_button.setCursor(Qt.PointingHandCursor)
+        export_csv_button.clicked.connect(self.export_patients_to_csv)
+
         controls.addWidget(self.table_search, 1)
         controls.addWidget(filter_button)
+        controls.addWidget(export_csv_button)
 
         self.table = QTableWidget()
         self.table.setSelectionMode(QAbstractItemView.NoSelection)
@@ -180,3 +192,26 @@ class PatientsView(QWidget):
         dialog = PatientDetailView(patient_id, self)
         dialog.exec()
         self.load_patients()
+
+    def export_patients_to_csv(self) -> None:
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Patients List to CSV",
+            "untitled.csv",
+            "CSV Files (*.csv)",
+        )
+
+        if file_path:
+            try:
+                export_patients_to_csv(file_path, self.patients)
+                QMessageBox.information(
+                    self,
+                    "Export Successful",
+                    f"Patients exported to {file_path}",
+                )
+            except Exception as exc:
+                QMessageBox.critical(
+                    self,
+                    "Export Failed",
+                    f"An error occurred while exporting patients list: {exc}",
+                )
