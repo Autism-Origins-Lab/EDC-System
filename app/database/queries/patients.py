@@ -3,28 +3,39 @@ import sqlite3
 from app.database.connection import get_connection
 
 PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race", "form_status"}
+SORT_OPTIONS = {
+    "Name (A-Z)": "COALESCE(p.child_name, p.subject_id) ASC",
+    "Name (Z-A)": "COALESCE(p.child_name, p.subject_id) DESC",
+    "Eligibility (Yes First)": "eligibility DESC",
+    "Eligibility (No First)": "eligibility ASC",
+    "Schedule Date (Earliest First)": "schedule_date ASC",
+    "Schedule Date (Latest First)": "schedule_date DESC",
+    "Newest First": "p.created_at DESC, p.id DESC",
+}
+#Sorting options added to be shown under the filter button.
 
 #command to check database name: python -c "from app.database.connection import get_connection; m = get_connection(); c = m.__enter__(); print(dict(c.execute('PRAGMA database_list').fetchone())['file']); m.__exit__(None, None, None)"
-#added another column called form_progress that helps mark formed as Pending or Complete.
+def list_patients(sort_by: str = "Newest First") -> list[dict]:
+    order_clause = SORT_OPTIONS.get(sort_by, "p.created_at DESC, p.id DESC")
+    with get_connection() as connection:
+        rows = connection.execute(
+            #added another column called form_progress that helps mark formed as Pending or Complete.
             #a form is pending when a new patient is added to the database. a form is complete when it is marked complete and ready to export. 
             #FOR LATER: a patient's form is marked complete when they are ELIGIBLE and certain details are filled out. 
             #COALESCE returns the first non null value.
-def list_patients() -> list[dict]:
-    with get_connection() as connection:
-        rows = connection.execute(
-            """
+            f"""
             SELECT
                 p.id,
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
-                COALESCE(ts.eligibility, 'Not started') AS eligibility,
+                COALESCE(ts.eligibility, 'Not evaluated') AS eligibility,
                 COALESCE(ts.eligibility_comment, '') AS comment,
                 COALESCE(p.form_status, 'Pending') AS form_status,
-                COALESCE(ts.screener, '') AS screener,
+                COALESCE(ts.screener, '') AS screener, 
                 COALESCE(ts.schedule_date, '') AS schedule_date
             FROM patients p
             LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
-            ORDER BY p.created_at DESC, p.id DESC
+            ORDER BY {order_clause}
             """
         ).fetchall()
     return [dict(row) for row in rows]
@@ -51,9 +62,12 @@ def get_patient(patient_id: int) -> dict | None:
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT *
-            FROM patients
-            WHERE id = ?
+            SELECT 
+                p.*,
+                COALESCE(ts.eligibility, 'Not Evaluated') AS eligibility
+            FROM patients p
+            LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
+            WHERE p.id = ?
             """,
             (patient_id,),
         ).fetchone()
@@ -70,7 +84,7 @@ def update_patient(patient_id: int, data: dict) -> None:
     assignments = ", ".join(f"{field} = ?" for field in fields)
     values = [data[field] for field in fields] + [patient_id]
 
-    with get_connection() as connection:
+    with sqlite3.connect("data/patient_data.db") as connection:
         connection.execute(
             f"""
             UPDATE patients
@@ -80,13 +94,14 @@ def update_patient(patient_id: int, data: dict) -> None:
             """,
             values,
         )
+    connection.commit()   
 
 
-def search_patients(search_text: str) -> list[dict]:
+def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dict]:
     cleaned_search = search_text.strip().lower()
 
     if not cleaned_search:
-        return list_patients()
+        return list_patients(sort_by=sort_by)
 
     pattern = f"%{cleaned_search}%"
 
@@ -133,5 +148,41 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
                 (status, patient_id),
             #for later, I want to make it so that you are only able to mark complete manually IF the patient is eligible.
             )
+        connection.commit()        
+        if cursor.rowcount == 0:
+            raise ValueError(f"There is no patient with id {patient_id}.")
+
+
+#patient immediately uneligibile (seizure or medical reason OR 3+ months old) -> mark reason
+#age should be in months 
+#if patient is 'No' for eligibility, dropdown textbox for reason why
+
+
+def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None: #can't mark eligible on certain conditions TBA
+  with get_connection() as connection:
+        cursor = connection.execute(
+                "SELECT 1 FROM telephone_screenings WHERE patient_id = ?",
+                (patient_id,)
+            )
+        screening_exists = cursor.fetchone()
+        if screening_exists: #update the eligibility status already in the screening, so that it doesn't crash & prevents a no column eligibility error
+            connection.execute(
+                 """
+                 UPDATE telephone_screenings
+                 SET eligibility = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?
+                 """,
+                (eligibility_status, patient_id),
+            )
+        else:
+            connection.execute( #if there is no record found, create one and set an eligibility. 
+                        """
+                        INSERT INTO telephone_screenings (patient_id, eligibility)
+                        VALUES (?, ?)
+                        """,
+                       (patient_id, eligibility_status),
+                    )
+        connection.commit()    
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")

@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
@@ -40,6 +41,7 @@ class ProcedureScheduleView(QWidget):
 
         save_button = QPushButton("Save Procedure Schedule")
         save_button.setObjectName("PrimaryButton")
+        save_button.setCursor(Qt.PointingHandCursor)
         save_button.clicked.connect(self.save)
 
         layout.addWidget(save_button)
