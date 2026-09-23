@@ -17,6 +17,9 @@ from PySide6.QtWidgets import (
 2. what fields need to be filled out for something to be marked complete? so it also does it automatically? worry abt later
 what if patients were already marked complete with eligibiilty issues. should i write logic to revert them..?
 
+make filter work w/ the search. so i might just make topbar return a list somehow.
+
+
 Accomplished:
 Added metric cards to display information in a friendlier way --> changed to donut chart. 
 Display form information below (Eligibility, Name, ID)
@@ -52,6 +55,14 @@ class PatientDetailView(QDialog):
         top_bar = QHBoxLayout()
         top_bar.addStretch()
 
+         #adding a mark complete button so that it's marked complete for manual review
+        self.mark_complete_button = QPushButton()
+        self.mark_complete_button.setObjectName("Mark_Complete_Button")
+        
+        self.mark_complete_button.clicked.connect(self.mark_or_unmark_completion)
+        top_bar.addWidget(self.mark_complete_button)
+        layout.addLayout(top_bar)
+
         tabs = QTabWidget()
         tabs.setUsesScrollButtons(False)
         tabs.addTab(self._build_overview(), "Overview")
@@ -63,13 +74,7 @@ class PatientDetailView(QDialog):
         tabs.addTab(MullenView(patient_id), "Mullen Assessment")
         layout.addWidget(tabs)
 
-        #adding a mark complete button so that it's marked complete for manual review
-        self.mark_complete_button = QPushButton()
-        self.mark_complete_button.setObjectName("Mark_Complete_Button")
-
-        self.mark_complete_button.clicked.connect(self.mark_or_unmark_completion)
-        top_bar.addWidget(self.mark_complete_button)
-        layout.addLayout(top_bar)
+       
         self.refresh_button_state()
 
 
