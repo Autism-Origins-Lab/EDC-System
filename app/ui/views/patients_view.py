@@ -199,7 +199,7 @@ class PatientsView(QWidget):
         return row, text
 
     
-    def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic
+    def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic, this need to be applied to the new list returned by the signal in topbar.py
         self.current_sort = sort_choice
         self.load_patients()
 
