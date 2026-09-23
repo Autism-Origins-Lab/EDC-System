@@ -45,7 +45,7 @@ class DonutChart(QWidget):
 
 
             denom = self._center_value if self._center_value > 0 else sum(value for _, value, _ in self._segments)
-            track_pen = QPen(QColor("#6A6969"), thickness)
+            track_pen = QPen(QColor("#1a1a1a"), thickness)
             track_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
             painter.setPen(track_pen)
             painter.drawArc(rect, 0, 360*16)
@@ -251,8 +251,8 @@ class PatientsView(QWidget):
 
         self.metrics_donut_chart.set_segments(
             [
-                ("Pending forms", pending_forms, "#D00B60"),
-                ("Ready exports", completed_forms, "#08AEA9"),
+                ("Pending forms", pending_forms, "#D82454"),
+                ("Ready exports", completed_forms, "#44CCAA"),
             ],
             center_value=len(self.patients),
         )

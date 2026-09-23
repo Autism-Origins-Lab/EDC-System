@@ -95,7 +95,7 @@ class PatientDetailView(QDialog):
 
         if not self.is_eligible():
              #inelgible = no newly marked complete
-             #or should i revert this to pending?
+             #or should i revert this to pending? --> yes
              self.refresh_button_state()
              return 
         
