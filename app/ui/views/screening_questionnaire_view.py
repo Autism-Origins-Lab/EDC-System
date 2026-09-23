@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -91,6 +92,7 @@ class ScreeningQuestionnaireView(QWidget):
 
         save_button = QPushButton("Save Screening Questionnaire")
         save_button.setObjectName("PrimaryButton")
+        save_button.setCursor(Qt.PointingHandCursor)
         save_button.clicked.connect(self.save)
 
         layout.addLayout(form)

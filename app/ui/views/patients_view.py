@@ -1,27 +1,81 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal, Slot, QRectF
+from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
+    QMenu,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    QAbstractItemView
+    QAbstractItemView,
+    QSizePolicy
+
 )
 
-from app.database.queries.patients import list_patients, search_patients
+from app.database.queries.patients import list_patients
 from app.ui.views.new_patient_dialog import NewPatientDialog
 from app.ui.views.patient_detail_view import PatientDetailView
 
+class DonutChart(QWidget):
+    #just draw arcs with QPainter w/ PySide6. no difference in styling
+    def __init__(self):
+        super().__init__()
+        self.segments: list[tuple[str,int,str]] = []
+        #label, value, color
+        self._center_value: int = 0 #this will be total # of patients
+        self.setMinimumSize(140,140)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+    def set_segments(self, segments: list[tuple[str,int,str]], center_value: int | None = None) -> None:
+            self._segments = segments
+            self._center_value = center_value if center_value is not None else sum(v for _, v, _ in segments)
+            self.update()
+
+    def paintEvent(self, event) -> None:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            side = min(self.width(), self.height())
+            thickness = side * 0.18
+            margin = thickness/2+4
+            rect = QRectF(margin, margin, side-2*margin, side-2*margin)
+
+
+            denom = self._center_value if self._center_value > 0 else sum(value for _, value, _ in self._segments)
+            track_pen = QPen(QColor("#1a1a1a"), thickness)
+            track_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+            painter.setPen(track_pen)
+            painter.drawArc(rect, 0, 360*16)
+
+            if denom > 0:
+                start_angle = 90*16
+                for _, value, color in self._segments:
+                    if value <= 0:
+                        continue
+                    span_angle = int(-(value/denom) * 360 * 16)
+                    pen = QPen(QColor(color), thickness)
+                    pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+                    painter.setPen(pen)
+                    painter.drawArc(rect, start_angle, span_angle)
+                    start_angle += span_angle
+            painter.setPen(QColor("#1a1a1a"))
+            font = QFont(painter.font())
+            font.setPointSize(14)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, str(self._center_value))
+            painter.end()
+
 
 class PatientsView(QWidget):
+    patient_data_changed = Signal()
     def __init__(self):
         super().__init__()
         self.patients: list[dict] = []
+        self.current_sort = "Newest First"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 28, 28, 18)
@@ -50,26 +104,58 @@ class PatientsView(QWidget):
 
         #change view -> visuals
         metrics = QHBoxLayout()
-        metrics.setSpacing(20)
-        self.total_patients_metric = self._metric("Total patients", "0", "#5243FA")
-        self.pending_forms_metric = self._metric("Pending forms", "0", "#E32929")
-        self.ready_exports_metric = self._metric("Ready exports", "0", "#41A350")
+        metrics.setSpacing(25)
 
-        metrics.addWidget(self.total_patients_metric,1)
-        metrics.addWidget(self.pending_forms_metric,1)
-        metrics.addWidget(self.ready_exports_metric,1)
+        self.metrics_donut_chart = DonutChart()
+        donut_block = QVBoxLayout()
+        donut_block.setSpacing(5)
+        donut_caption = QLabel("Total patients")
+        donut_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        donut_caption.setStyleSheet("color: #666666; font-size: 11px; font-weight: bold;")
+        donut_block.addWidget(self.metrics_donut_chart)
+        donut_block.addWidget(donut_caption)
+
+        legend = QVBoxLayout()
+        legend.setSpacing(10)
+        self.pending_forms_row, self.pending_forms_label = self._legend_item(
+            "#D00B60", "Pending forms"
+        )
+        self.ready_exports_row, self.ready_exports_label = self._legend_item(
+            "#08AEA9", "Ready exports"
+        )
+
+        #this is just a test to see what pending vs complete vs neither would look like.
+        self.edge_case_row, self.edge_case_label = self._legend_item(
+            "#5C5C5C", "(edge case)"
+        )
+        legend.addWidget(self.pending_forms_row)
+        legend.addWidget(self.ready_exports_row)
+        legend.addWidget(self.edge_case_row)
+        legend.addStretch()
+
+        metrics.addLayout(donut_block)
+        metrics.addLayout(legend)
         metrics.addStretch()
 
+
+   
         controls = QHBoxLayout()
-        self.table_search = QLineEdit()
-        self.table_search.setPlaceholderText("Search patient table")
-        self.table_search.textChanged.connect(self.load_patients)
 
         filter_button = QPushButton("Filter")
         filter_button.setObjectName("SecondaryButton")
         filter_button.setCursor(Qt.PointingHandCursor)
 
-        controls.addWidget(self.table_search, 1)
+        filter_menu = QMenu(self)
+        filter_menu.addAction("Name (A-Z)", lambda: self.apply_sort("Name (A-Z)"))
+        filter_menu.addAction("Name (Z-A)", lambda: self.apply_sort("Name (Z-A)"))
+        filter_menu.addAction("Eligibility (Yes First)", lambda: self.apply_sort("Eligibility (Yes First)"))
+        filter_menu.addAction("Eligibility (No First)", lambda: self.apply_sort("Eligibility (No First)"))
+        filter_menu.addAction("Schedule Date (Earliest First)", lambda: self.apply_sort("Schedule Date (Earliest First)"))
+        filter_menu.addAction("Schedule Date (Latest First)", lambda: self.apply_sort("Schedule Date (Latest First)"))
+        filter_button.setMenu(filter_menu)
+
+        # Sorting options added to a filter menu
+
         controls.addWidget(filter_button)
 
         self.table = QTableWidget()
@@ -83,7 +169,6 @@ class PatientsView(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.cellDoubleClicked.connect(self.open_patient_detail)
-        self.table_search.setCursor(Qt.IBeamCursor)
         self.table.viewport().setCursor(Qt.PointingHandCursor)
 
         layout.addLayout(header)
@@ -93,50 +178,52 @@ class PatientsView(QWidget):
 
         self.load_patients()
 
-    def _metric(self, label_text: str, value_text: str, accent_color: str) -> QFrame:
-        box = QFrame()
-        box.setObjectName("MetricCard")
-        box.setMinimumWidth(180)
-        box.setStyleSheet(f"""
-            QFrame#MetricCard {{
-                background-color: #ffffff;
-                border: 1px solid #e0e0e0;
-                border-left: 6px solid {accent_color};
-                border-radius: 10px;
-                padding: 12px 16px;
-            }}
-        """)
+    def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0,0,0,0)
+        row_layout.setSpacing(8)
 
-        layout = QVBoxLayout(box)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        dot = QLabel()
+        dot.setFixedSize(12, 12)
+        dot.setStyleSheet(f"background-color: {color}; border-radius: 6px;")
 
-        label = QLabel(label_text.upper())
-        label.setStyleSheet("color: #666666; font-size: 11px; font-weight: bold; border: none;")
+        text = QLabel(f"{name}: 0")
+        text.setStyleSheet("color: #1a1a1a; font-size: 13px;")
 
-        value = QLabel(value_text)
-        value.setStyleSheet("color: #1a1a1a; font-size: 26px; font-weight: bold; border: none;")
+        row_layout.addWidget(dot)
+        row_layout.addWidget(text)
+        row_layout.addStretch()
 
-        layout.addWidget(label)
-        layout.addWidget(value)
+        text.setProperty("legend_name", name)
+        return row, text
 
-        box.value_label = value
-        return box
+    
+    def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic
+        self.current_sort = sort_choice
+        self.load_patients()
 
-    def load_patients(self) -> None:
-        search_text = self.table_search.text()
-        self.patients = search_patients(search_text) if search_text.strip() else list_patients()
+    def load_patients(self) -> None: #I removed the table search because patients is sorted via filter menu
+        #search is now in topbar's global search..
+        patients = list_patients(sort_by=self.current_sort)
+        self.update_table(patients)
 
+    @Slot(list)
+    def update_table(self, patients: list[dict]) -> None:
+        #update table & metrics. TopBar signals
+        self.patients = patients
+        self.table.setSortingEnabled(False)
+        self.table.setRowCount(0)
         self.table.setRowCount(len(self.patients))
 
         pending_forms = 0
         completed_forms = 0 # not hardcoded
 
         for row_index, patient in enumerate(self.patients):
-            if patient["form_status"] == "Pending": #depending on form_status instead of eligibility, 
-                    #but I need this to also be updated when a patient form is created (when the patient is basically created)
+            status = patient.get("form_status", "Pending")
+            if status == "Pending": 
                 pending_forms += 1
-            if patient["form_status"] == "Complete": 
+            if status == "Complete": 
                 completed_forms += 1
 
             values = [
@@ -149,23 +236,33 @@ class PatientsView(QWidget):
                 ]
 
             for column_index, value in enumerate(values):
-                item = QTableWidgetItem(str(value) if value is not None else "")
+                item = QTableWidgetItem(str(value) if value is not None else "N/A")
                 item.setForeground(Qt.GlobalColor.black)
-                
-                if column_index == 5:
-                    item.setTextAlignment(Qt.AlignCenter)
-                
+                item.setData(Qt.UserRole, patient.get("id"))
                 self.table.setItem(row_index, column_index, item)
+ 
+    
 
-        self.total_patients_metric.value_label.setText(str(len(self.patients)))
-        self.pending_forms_metric.value_label.setText(str(pending_forms)) #will update this, decrease by one when manual review (mark complete) button is pressed
-        self.ready_exports_metric.value_label.setText(str(completed_forms)) #will update this, when manual review is complete by 1.
+        other_forms = len(self.patients) - pending_forms - completed_forms
+
+        self.pending_forms_label.setText(f"Pending forms: {pending_forms}")
+        self.ready_exports_label.setText(f"Ready exports: {completed_forms}")
+        self.edge_case_label.setText(f"(edge case): {other_forms}")
+
+        self.metrics_donut_chart.set_segments(
+            [
+                ("Pending forms", pending_forms, "#D82454"),
+                ("Ready exports", completed_forms, "#44CCAA"),
+            ],
+            center_value=len(self.patients),
+        )
 
     def open_new_patient_dialog(self) -> None:
         dialog = NewPatientDialog(self)
 
         if dialog.exec() == NewPatientDialog.DialogCode.Accepted:
             self.load_patients()
+            self.patient_data_changed.emit()
 
             if dialog.created_patient_id is not None:
                 self.show_patient_detail(dialog.created_patient_id)
@@ -180,3 +277,4 @@ class PatientsView(QWidget):
         dialog = PatientDetailView(patient_id, self)
         dialog.exec()
         self.load_patients()
+        self.patient_data_changed.emit()

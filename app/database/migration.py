@@ -111,16 +111,23 @@ def run_migrations() -> None:
             version = 1
 
         if version < 2:
-            migrate_patients_video_table(connection)
+            connection.execute(
+                "ALTER TABLE patients ADD COLUMN form_status TEXT DEFAULT 'Pending'"
+            )
             set_schema_version(connection, 2)
             version = 2
 
         if version < 3:
-            migrate_mullen_assessments(connection)
-            set_schema_version(connection,3)
+            migrate_patients_video_table(connection)
+            set_schema_version(connection, 3)
             version = 3
 
         if version < 4:
-            migrate_telephone_screening_comments(connection)
+            migrate_mullen_assessments(connection)
             set_schema_version(connection, 4)
             version = 4
+
+        if version < 5:
+            migrate_telephone_screening_comments(connection)
+            set_schema_version(connection, 5)
+            version = 5

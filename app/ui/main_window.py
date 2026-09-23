@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.database.queries.patients import list_patients
 from app.ui.sidebar import Sidebar
 from app.ui.topbar import TopBar
 from app.ui.views.patients_view import PatientsView
@@ -25,29 +26,32 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
+        self.topbar = TopBar()
+        self.sidebar = Sidebar()
+        self.patients_view = PatientsView()
+
         body = QFrame()
         body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(0)
 
-        self.sidebar = Sidebar()
-
         self.sidebar_expanded = True
-        
         self.sidebar_animation = QPropertyAnimation(self.sidebar,b"maximumWidth")
-
         self.sidebar_animation.setDuration(250)
         self.sidebar_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
-
         self.sidebar.section_selected.connect(self.show_section)
 
         #Mouse changes on hover for each placeholder page, to make it look clickable.
         for placeholder_page in self.sidebar.findChildren(QWidget):
             placeholder_page.setCursor(Qt.PointingHandCursor)
 
+        
+        self.topbar.patients_filtered.connect(self.patients_view.update_table)
+        self.patients_view.patient_data_changed.connect(self.refresh_topbar)
+
         self.pages = QStackedWidget()
         self.section_indexes = {
-            "Patients": self.pages.addWidget(PatientsView()),
+            "Patients": self.pages.addWidget(self.patients_view),
             "Telephone Screening": self.pages.addWidget(
                 self._build_placeholder_page(
                     "Telephone Screening",
@@ -93,12 +97,12 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self.sidebar)
         body_layout.addWidget(self.pages, 1)
 
-        self.topbar = TopBar()
         self.topbar.menu_clicked.connect(self.toggle_sidebar)
 
         root_layout.addWidget(self.topbar)
         root_layout.addWidget(body, 1)
         self.setCentralWidget(root)
+        self.refresh_topbar()
 
     def toggle_sidebar(self) -> None:
         collapsed_width = 0
@@ -114,6 +118,10 @@ class MainWindow(QMainWindow):
 
         self.sidebar_expanded = not self.sidebar_expanded
         self.sidebar_animation.start()
+
+    def refresh_topbar(self) -> None:
+        all_patients = list_patients()
+        self.topbar.set_patients(all_patients)
 
     def show_section(self, section: str) -> None:
         self.pages.setCurrentIndex(self.section_indexes[section])
