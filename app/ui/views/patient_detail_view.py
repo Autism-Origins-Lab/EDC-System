@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
+    QHBoxLayout,
     QFormLayout,
     QLabel,
     QTabWidget,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 3. a section to review all of the form inputs & section before finalizing changes
 4. when a form is "complete" and marked ready to export, and i want to make changes to it, it should update what needs to be exported already.
 2. what fields need to be filled out for something to be marked complete? so it also does it automatically? worry abt later
+what if patients were already marked complete with eligibiilty issues. should i write logic to revert them..?
 
 Accomplished:
 Added metric cards to display information in a friendlier way --> changed to donut chart. 
@@ -47,6 +49,9 @@ class PatientDetailView(QDialog):
 
         layout = QVBoxLayout(self)
 
+        top_bar = QHBoxLayout()
+        top_bar.addStretch()
+
         tabs = QTabWidget()
         tabs.setUsesScrollButtons(False)
         tabs.addTab(self._build_overview(), "Overview")
@@ -63,9 +68,9 @@ class PatientDetailView(QDialog):
         self.mark_complete_button.setObjectName("Mark_Complete_Button")
 
         self.mark_complete_button.clicked.connect(self.mark_or_unmark_completion)
-        layout.addWidget(self.mark_complete_button)
+        top_bar.addWidget(self.mark_complete_button)
+        layout.addLayout(top_bar)
         self.refresh_button_state()
-
 
 
 
@@ -80,6 +85,15 @@ class PatientDetailView(QDialog):
             }}
         """
     def mark_or_unmark_completion(self) -> None: #function to set the status as Pending or Complete.
+
+        self.patient = get_patient(self.patient_id) or {}
+
+        if not self.is_eligible():
+             #inelgible = no newly marked complete
+             #or should i revert this to pending?
+             self.refresh_button_state()
+             return 
+        
         new_status = "Pending" if self.is_complete() else "Complete"
         self.patient = self.patient or {}
         self.patient["form_status"] = new_status
