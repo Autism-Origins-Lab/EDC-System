@@ -77,6 +77,9 @@ class PatientsView(QWidget):
         self.patients: list[dict] = []
         self.current_sort = "Newest First"
 
+        self.current_search_text = ""
+
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 28, 28, 18)
         layout.setSpacing(18)
@@ -94,6 +97,7 @@ class PatientsView(QWidget):
         title_block.addWidget(subtitle)
 
         new_patient = QPushButton("New Patient")
+        new_patient.setStyleSheet(self.new_patient_style())
         new_patient.setCursor(Qt.PointingHandCursor)
         new_patient.setObjectName("PrimaryButton")
         new_patient.clicked.connect(self.open_new_patient_dialog)
@@ -178,6 +182,23 @@ class PatientsView(QWidget):
 
         self.load_patients()
 
+    @staticmethod
+    def new_patient_style() -> str:
+        return """
+        QPushButton {
+            background-color: #166AB8;
+            color: #FFFFFF;
+            border-radius: 20px;
+            padding: 12px 16px;
+        }
+            QPushButton:hover {
+            background-color: #115492;
+        }
+        QPushButton:pressed {
+            background-color: #115492;
+        }
+        """
+
     def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
         row = QWidget()
         row_layout = QHBoxLayout(row)
@@ -198,15 +219,52 @@ class PatientsView(QWidget):
         text.setProperty("legend_name", name)
         return row, text
 
+
+
     
-    def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic
+    def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic, this need to be applied to the new list returned by the signal in topbar.py
         self.current_sort = sort_choice
+        self.load_patients()
+
+    def set_search_text(self, search_text: str) -> None:
+        self.current_search_text = search_text
         self.load_patients()
 
     def load_patients(self) -> None: #I removed the table search because patients is sorted via filter menu
         #search is now in topbar's global search..
         patients = list_patients(sort_by=self.current_sort)
+
+        if self.current_search_text:
+            patients = self.filter_by_search(patients, self.current_search_text)
         self.update_table(patients)
+
+    @staticmethod
+    def filter_by_search(patients: list[dict], search_text:str) -> list[dict]:
+        query = search_text.strip().lower()
+
+        if not query:
+            return patients
+
+        filtered: list[dict] = []
+
+        for patient in patients:
+            child_name = str(patient.get("child_name") or "").lower()
+            subject_id = str(patient.get("subject_id") or "").lower()
+
+            if "," in query:
+                parts = [p.strip() for p in query.split(",", 1)]
+                name_part = parts[0]
+                id_part = parts[1] if len(parts) > 1 else ""
+
+                if name_part in child_name and id_part in subject_id:
+                    filtered.append(patient)
+            else:
+                if query in child_name or query in subject_id:
+                    filtered.append(patient)
+
+        return filtered #I want this list to be sent to patients_view to displau the table as needed, when something is searched 
+    
+
 
     @Slot(list)
     def update_table(self, patients: list[dict]) -> None:
