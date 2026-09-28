@@ -18,7 +18,7 @@ from app.ui.views.settings_view import SettingsView
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("AOL Databse")
+        self.setWindowTitle("Autism Origins Lab Databse")
         self.resize(1280, 760)
 
         root = QWidget()
@@ -46,8 +46,8 @@ class MainWindow(QMainWindow):
             placeholder_page.setCursor(Qt.PointingHandCursor)
 
         
-        self.topbar.patients_filtered.connect(self.patients_view.update_table)
-        self.patients_view.patient_data_changed.connect(self.refresh_topbar)
+        self.topbar.search_changed.connect(self.patients_view.set_search_text)
+        #top bar --> search text --> send patients_view
 
         self.pages = QStackedWidget()
         self.section_indexes = {
@@ -102,7 +102,6 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.topbar)
         root_layout.addWidget(body, 1)
         self.setCentralWidget(root)
-        self.refresh_topbar()
 
     def toggle_sidebar(self) -> None:
         collapsed_width = 0
@@ -119,9 +118,6 @@ class MainWindow(QMainWindow):
         self.sidebar_expanded = not self.sidebar_expanded
         self.sidebar_animation.start()
 
-    def refresh_topbar(self) -> None:
-        all_patients = list_patients()
-        self.topbar.set_patients(all_patients)
 
     def show_section(self, section: str) -> None:
         self.pages.setCurrentIndex(self.section_indexes[section])
