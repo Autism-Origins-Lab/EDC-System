@@ -142,4 +142,3 @@ def run_migrations() -> None:
             migrate_patient_risk(connection)
             set_schema_version(connection,6)
             version = 6
-mi

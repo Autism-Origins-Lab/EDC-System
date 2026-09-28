@@ -125,6 +125,28 @@ def _save_one_to_one_form(table_name: str, patient_id: int, data: dict) -> None:
 
     with get_connection() as connection:
         connection.execute(sql, [patient_id, *fields.values()])
+        if table_name == "telephone_screenings":
+            
+            # Read the saved row so partial form updates preserve existing risk.
+            screening = connection.execute(
+                "SELECT high_familial_risk, low_familial_risk "
+                "FROM telephone_screenings WHERE patient_id = ?",
+                (patient_id,),
+            ).fetchone()
+            
+            high = bool(screening["high_familial_risk"])
+            low = bool(screening["low_familial_risk"])
+            
+            if high and low:
+                raise ValueError("Select either high or low familial risk, not both.")
+            risk = True if high else False if low else None
+            
+            # Commit the screening and patient risk together.
+            connection.execute(
+                "UPDATE patients SET risk = ?, updated_at = CURRENT_TIMESTAMP "
+                "WHERE id = ?",
+                (risk, patient_id),
+            )
 
 
 def _get_one_to_one_form(table_name: str, patient_id: int) -> dict | None:
