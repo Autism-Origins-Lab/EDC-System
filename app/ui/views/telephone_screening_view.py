@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.queries.forms import get_telephone_screening, save_telephone_screening
-from app.database.queries.patients import update_patient_eligibility #to set eligibility
 
 
 class TelephoneScreeningView(QWidget):
@@ -43,6 +42,12 @@ class TelephoneScreeningView(QWidget):
         self.eligibility_combo.currentTextChanged.connect(self.update_comment_visibility)
         self.high_risk_checkbox = QCheckBox("High familial risk")
         self.low_risk_checkbox = QCheckBox("Low familial risk")
+        self.high_risk_checkbox.clicked.connect(
+            lambda checked: self.low_risk_checkbox.setChecked(False) if checked else None
+        )
+        self.low_risk_checkbox.clicked.connect(
+            lambda checked: self.high_risk_checkbox.setChecked(False) if checked else None
+        )
 
         self.schedule_date_input = QLineEdit()
         self.birthweight_input = QLineEdit()
@@ -139,8 +144,11 @@ class TelephoneScreeningView(QWidget):
 
     def save(self) -> None:
         data = self.collect_data()
-        update_patient_eligibility(self.patient_id, data["eligibility"])
-        save_telephone_screening(self.patient_id, data)
+        try:
+            save_telephone_screening(self.patient_id, data)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Unable to save", str(exc))
+            return
 
 
         QMessageBox.information(

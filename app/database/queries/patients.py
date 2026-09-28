@@ -17,14 +17,16 @@ SORT_OPTIONS = {
 #Sorting options added to be shown under the filter button.
 
 #command to check database name: python -c "from app.database.connection import get_connection; m = get_connection(); c = m.__enter__(); print(dict(c.execute('PRAGMA database_list').fetchone())['file']); m.__exit__(None, None, None)"
+
+#added another column called form_progress that helps mark formed as Pending or Complete.
+            #a form is pending when a new patient is added to the database. a form is complete when it is marked complete and ready to export. 
+            #FOR LATER: a patient's form is marked complete when they are ELIGIBLE and certain details are filled out. 
+            #COALESCE returns the first non null value.
+            
 def list_patients(sort_by: str = "Newest First") -> list[dict]:
     order_clause = SORT_OPTIONS.get(sort_by, "p.created_at DESC, p.id DESC")
     with get_connection() as connection:
         rows = connection.execute(
-            #added another column called form_progress that helps mark formed as Pending or Complete.
-            #a form is pending when a new patient is added to the database. a form is complete when it is marked complete and ready to export. 
-            #FOR LATER: a patient's form is marked complete when they are ELIGIBLE and certain details are filled out. 
-            #COALESCE returns the first non null value.
             f"""
             SELECT
                 p.id,
@@ -156,12 +158,12 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
             raise ValueError(f"There is no patient with id {patient_id}.")
 
 
-#patient immediately uneligibile (seizure or medical reason OR 3+ months old) -> mark reason
-#age should be in months 
-#if patient is 'No' for eligibility, dropdown textbox for reason why
+# patient immediately uneligibile (seizure or medical reason OR 3+ months old) -> mark reason
+# age should be in months 
+# if patient is 'No' for eligibility, dropdown textbox for reason why
 
-#born before 37 weeks -> no illegble
-#age limit max 2 months and 2 weeks (before 3 months)
+# born before 37 weeks -> no illegble
+# age limit max 2 months and 2 weeks (before 3 months)
 
 
 def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None: #can't mark eligible on certain conditions TBA
@@ -171,7 +173,7 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
                 (patient_id,)
             )
         screening_exists = cursor.fetchone()
-        if screening_exists: #update the eligibility status already in the screening, so that it doesn't crash & prevents a no column eligibility error
+        if screening_exists: # update the eligibility status already in the screening, so that it doesn't crash & prevents a no column eligibility error
             connection.execute(
                  """
                  UPDATE telephone_screenings
@@ -182,7 +184,7 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
                 (eligibility_status, patient_id),
             )
         else:
-            connection.execute( #if there is no record found, create one and set an eligibility. 
+            connection.execute( # if there is no record found, create one and set an eligibility. 
                         """
                         INSERT INTO telephone_screenings (patient_id, eligibility)
                         VALUES (?, ?)
