@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS patients (
     date_of_birth TEXT,
     sex TEXT,
     race TEXT,
+    risk BOOLEAN,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -6,7 +6,7 @@ from app.database.schema import SCHEMA_SQL
 # updated schema 1 --> 2 (Now includes a patients video table)
 # videos have their own unique id but are also related to their individal patient
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 6
 
 PATIENTS_VIDEO_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS patients_video (
@@ -57,7 +57,6 @@ Handles the following:
 2. patients_video already exists and already has patient_id --> It does nothing, because the table is already correct.
 3. if patients_video exists but has no patient_id --> creates a new table and associated
 """
-
 def migrate_patients_video_table(connection: sqlite3.Connection) -> None:
     table_info = connection.execute("PRAGMA table_info(patients_video)").fetchall()
     columns = {row["name"] for row in table_info}
@@ -91,6 +90,13 @@ def migrate_patients_video_table(connection: sqlite3.Connection) -> None:
 # New Mullen Table added to the current database --> version 3
 def migrate_mullen_assessments(connection: sqlite3.Connection) -> None:
     connection.executescript(MULLEN_SCHEMA_SQL)
+
+def migrate_patient_risk(connection: sqlite3.Connection) -> None:
+    table_info = connection.execute("PRAGMA table_info(patients)").fetchall()
+    columns = {row["name"] for row in table_info}
+
+    if "risk" not in columns:
+        connection.execute("ALTER TABLE patients ADD COLUMN risk BOOLEAN")
 
 
 def migrate_telephone_screening_comments(connection: sqlite3.Connection) -> None:
@@ -131,3 +137,9 @@ def run_migrations() -> None:
             migrate_telephone_screening_comments(connection)
             set_schema_version(connection, 5)
             version = 5
+
+        if version < 6:
+            migrate_patient_risk(connection)
+            set_schema_version(connection,6)
+            version = 6
+mi

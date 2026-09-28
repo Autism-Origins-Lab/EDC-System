@@ -18,10 +18,6 @@ class Sidebar(QFrame):
 
         items = [
             "Patients",
-            "Telephone Screening",
-            "Questionnaires",
-            "Medical History",
-            "Family History",
             "Imports",
             "Exports",
             "Settings",
