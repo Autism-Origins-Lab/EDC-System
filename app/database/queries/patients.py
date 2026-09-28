@@ -2,12 +2,14 @@ import sqlite3
 
 from app.database.connection import get_connection
 
+#risk = low risk or high risk, this is already in telephone screenings but it should be helpful to have in the global patients database
+#verbal consent. this is also already in the telephone screenings but it should be helpful to have in the global patients database too 
 PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race", "form_status"}
-SORT_OPTIONS = {
+SORT_OPTIONS = { 
     "Name (A-Z)": "COALESCE(p.child_name, p.subject_id) ASC",
     "Name (Z-A)": "COALESCE(p.child_name, p.subject_id) DESC",
-    "Eligibility (Yes First)": "eligibility DESC",
-    "Eligibility (No First)": "eligibility ASC",
+    "Eligibility (Yes)": "eligibility DESC",
+    "Eligibility (No / Not Evaluated)": "eligibility ASC", #exclude
     "Schedule Date (Earliest First)": "schedule_date ASC",
     "Schedule Date (Latest First)": "schedule_date DESC",
     "Newest First": "p.created_at DESC, p.id DESC",
@@ -29,6 +31,7 @@ def list_patients(sort_by: str = "Newest First") -> list[dict]:
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
                 COALESCE(ts.eligibility, 'Not evaluated') AS eligibility,
+                COALESCE(p.risk, 'Not evaluated') AS risk,
                 COALESCE(ts.eligibility_comment, '') AS comment,
                 COALESCE(p.form_status, 'Pending') AS form_status,
                 COALESCE(ts.screener, '') AS screener, 
@@ -156,6 +159,9 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
 #patient immediately uneligibile (seizure or medical reason OR 3+ months old) -> mark reason
 #age should be in months 
 #if patient is 'No' for eligibility, dropdown textbox for reason why
+
+#born before 37 weeks -> no illegble
+#age limit max 2 months and 2 weeks (before 3 months)
 
 
 def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None: #can't mark eligible on certain conditions TBA

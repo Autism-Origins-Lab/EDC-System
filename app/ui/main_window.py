@@ -52,30 +52,6 @@ class MainWindow(QMainWindow):
         self.pages = QStackedWidget()
         self.section_indexes = {
             "Patients": self.pages.addWidget(self.patients_view),
-            "Telephone Screening": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Telephone Screening",
-                    "Open a patient from the Patients page to complete this form.",
-                )
-            ),
-            "Questionnaires": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Questionnaires",
-                    "Open a patient from the Patients page to complete questionnaires.",
-                )
-            ),
-            "Medical History": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Medical History",
-                    "Open a patient from the Patients page to complete medical history.",
-                )
-            ),
-            "Family History": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Family History",
-                    "Open a patient from the Patients page to complete family history.",
-                )
-            ),
             "Imports": self.pages.addWidget(
                 self._build_placeholder_page(
                     "Imports",

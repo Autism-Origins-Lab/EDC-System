@@ -97,6 +97,7 @@ class PatientsView(QWidget):
         title_block.addWidget(subtitle)
 
         new_patient = QPushButton("New Patient")
+        new_patient.setStyleSheet(self.new_patient_style())
         new_patient.setCursor(Qt.PointingHandCursor)
         new_patient.setObjectName("PrimaryButton")
         new_patient.clicked.connect(self.open_new_patient_dialog)
@@ -181,6 +182,23 @@ class PatientsView(QWidget):
 
         self.load_patients()
 
+    @staticmethod
+    def new_patient_style() -> str:
+        return """
+        QPushButton {
+            background-color: #166AB8;
+            color: #FFFFFF;
+            border-radius: 20px;
+            padding: 12px 16px;
+        }
+            QPushButton:hover {
+            background-color: #115492;
+        }
+        QPushButton:pressed {
+            background-color: #115492;
+        }
+        """
+
     def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
         row = QWidget()
         row_layout = QHBoxLayout(row)
@@ -200,6 +218,8 @@ class PatientsView(QWidget):
 
         text.setProperty("legend_name", name)
         return row, text
+
+
 
     
     def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic, this need to be applied to the new list returned by the signal in topbar.py

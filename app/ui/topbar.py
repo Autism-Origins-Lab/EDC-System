@@ -12,6 +12,7 @@ class TopBar(QFrame):
         super().__init__()
         self.setObjectName("TopBar")
         self.setFixedHeight(58)
+        self.setStyleSheet("QFrame#TopBar { background-color: #166AB8;}")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(24, 8, 24, 8)
