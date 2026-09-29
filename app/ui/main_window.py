@@ -14,14 +14,13 @@ from app.ui.sidebar import Sidebar
 from app.ui.topbar import TopBar
 from app.ui.views.patients_view import PatientsView
 from app.ui.views.summary_view import PatientExportView
+from app.ui.views.settings_view import SettingsView
 
 # Export patient data to excel sheet or a patient summary 
 # An overview window total number of participants, how many are elgible, 
 # Being able to attach the EEG and their corresponding files to their data
 # A way to keep the infants age updated based on the time the file has been completed --> change action column
-# 
-from app.ui.views.settings_view import SettingsView
-
+ 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()

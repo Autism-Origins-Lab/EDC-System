@@ -21,8 +21,7 @@ from app.database.queries.forms import (
 )
 
 
-LOGO_PATH = Path(__file__).parent / "assets" / "migration.png"
-styles = getSampleStyleSheet()
+LOGO_PATH = Path(__file__).resolve().parents[2] / "assets" / "migration.png"
 
 def _yes_no(value) -> str:
     if value is None:

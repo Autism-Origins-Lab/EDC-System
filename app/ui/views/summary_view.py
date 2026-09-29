@@ -13,30 +13,66 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QDesktopServices, QIcon
 
 from app.database.queries.patients import list_patients
 from app.database.queries.patient_pdf_export import build_patient_pdf
 
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+
+def _icon(name: str) -> QIcon:
+        return QIcon(str(ASSETS_DIR / name))
+
+def _header(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setObjectName("Muted")
+    return label
+
+RISK_KEY = "familial_risk"  # replace with the real column name, see below
+
+FILTER_MODES = {
+    "eligibility": {
+        "key": "eligibility", "match": "yes",
+        "left": "Eligible", "right": "Ineligible",
+        "button": "Filter by familial risk",
+    },
+    "risk": {
+        "key": RISK_KEY, "match": "high",
+        "left": "High risk", "right": "Low risk",
+        "button": "Filter by eligibility",
+    },
+}
 
 class PatientExportView(QWidget):
+    
     def __init__(self) -> None:
         super().__init__()
 
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.addWidget(QLabel("Select a patient to export their record:"))
+        self.filter_mode = "eligibility"
+
+        top_bar = QHBoxLayout()
+        top_bar.addWidget(QLabel("Select a patient to export their record:"))
+        top_bar.addStretch()
+        self.filter_button = QPushButton()
+        self.filter_button.clicked.connect(self._toggle_filter)
+        top_bar.addWidget(self.filter_button)
+        self.main_layout.addLayout(top_bar)
 
         columns_layout = QHBoxLayout()
 
         eligible_column = QVBoxLayout()
-        eligible_column.addWidget(QLabel("Eligible"))
+        self.eligible_header = _header("Eligible")
+        eligible_column.addWidget(self.eligible_header)
         self.eligible_list = QListWidget()
         self.eligible_list.setSelectionMode(QAbstractItemView.SingleSelection)
         eligible_column.addWidget(self.eligible_list)
         columns_layout.addLayout(eligible_column)
 
         ineligible_column = QVBoxLayout()
-        ineligible_column.addWidget(QLabel("Ineligible"))
+        self.ineligible_header = _header("Ineligible")
+        ineligible_column.addWidget(self.ineligible_header)
         self.ineligible_list = QListWidget()
         self.ineligible_list.setSelectionMode(QAbstractItemView.SingleSelection)
         ineligible_column.addWidget(self.ineligible_list)
@@ -51,14 +87,21 @@ class PatientExportView(QWidget):
         self.print_button = QPushButton("Print")
         self.print_button.clicked.connect(self._on_print_clicked)
         self.main_layout.addWidget(self.print_button)
+        self.print_button.setIcon(_icon("printbutton.png"))
+        self.print_button.setIconSize(QSize(20, 20))
+
 
         self.email_button = QPushButton("Email")
         self.email_button.clicked.connect(self._on_email_clicked)
         self.main_layout.addWidget(self.email_button)
+        self.email_button.setIcon(_icon("emailbutton.png"))
+        self.email_button.setIconSize(QSize(20, 20))
 
         self.export_button = QPushButton("Export to PDF")
         self.export_button.clicked.connect(self._on_export_clicked)
         self.main_layout.addWidget(self.export_button)
+        self.export_button.setIcon(_icon("exportbutton.png"))
+        self.export_button.setIconSize(QSize(20, 20))
 
         self.refresh_patient_list()
 
@@ -67,20 +110,29 @@ class PatientExportView(QWidget):
         self.refresh_patient_list()
 
     def refresh_patient_list(self) -> None:
+        mode = FILTER_MODES[self.filter_mode]
+        self.eligible_header.setText(mode["left"])
+        self.ineligible_header.setText(mode["right"])
+        self.filter_button.setText(mode["button"])
+
         self.eligible_list.clear()
         self.ineligible_list.clear()
         self.patients = list_patients()
 
         for patient in self.patients:
-            eligibility = (patient.get("eligibility") or "").strip().lower()
+            value = str(patient.get(mode["key"]) or "").strip().lower()
             label = f"{patient['subject_id']} — {patient['child_name'] or 'Unnamed'}"
             item = QListWidgetItem(label)
             item.setData(Qt.UserRole, patient)
 
-            if eligibility == "yes":
+            if value == mode["match"]:
                 self.eligible_list.addItem(item)
             else:
                 self.ineligible_list.addItem(item)
+
+    def _toggle_filter(self) -> None:
+        self.filter_mode = "risk" if self.filter_mode == "eligibility" else "eligibility"
+        self.refresh_patient_list()
 
     def _on_eligible_selected(self) -> None:
         if self.eligible_list.selectedItems():
