@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QFormLayout,
@@ -58,6 +59,7 @@ class FamilyMedicalHistoryView(QWidget):
         form.addRow("", self.same_mother_checkbox)
 
         save_button = QPushButton("Save Family Medical History")
+        save_button.setCursor(Qt.PointingHandCursor)
         save_button.setObjectName("PrimaryButton")
         save_button.clicked.connect(self.save)
 

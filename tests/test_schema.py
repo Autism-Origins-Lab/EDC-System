@@ -6,6 +6,7 @@ from app.database.migration import CURRENT_SCHEMA_VERSION, get_schema_version
 def test_database_initialization_creates_expected_tables(temp_database):
     expected = {
         "patients",
+        "patients_video",
         "telephone_screenings",
         "screening_questionnaires",
         "medical_histories",

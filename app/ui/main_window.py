@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEasingCurve, QPropertyAnimation
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.database.queries.patients import list_patients
 from app.ui.sidebar import Sidebar
 from app.ui.topbar import TopBar
 from app.ui.views.patients_view import PatientsView
@@ -19,11 +20,12 @@ from app.ui.views.summary_view import PatientExportView
 # Being able to attach the EEG and their corresponding files to their data
 # A way to keep the infants age updated based on the time the file has been completed --> change action column
 # 
+from app.ui.views.settings_view import SettingsView
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("EDC System")
+        self.setWindowTitle("Autism Origins Lab Databse")
         self.resize(1280, 760)
 
         root = QWidget()
@@ -31,45 +33,32 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
+        self.topbar = TopBar()
+        self.sidebar = Sidebar()
+        self.patients_view = PatientsView()
+
         body = QFrame()
         body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(0)
 
-        self.sidebar = Sidebar()
+        self.sidebar_expanded = True
+        self.sidebar_animation = QPropertyAnimation(self.sidebar,b"maximumWidth")
+        self.sidebar_animation.setDuration(250)
+        self.sidebar_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
         self.sidebar.section_selected.connect(self.show_section)
 
-    #Mouse changes on hover for each placeholder page, to make it look clickable.
+        #Mouse changes on hover for each placeholder page, to make it look clickable.
         for placeholder_page in self.sidebar.findChildren(QWidget):
             placeholder_page.setCursor(Qt.PointingHandCursor)
 
+        
+        self.topbar.search_changed.connect(self.patients_view.set_search_text)
+        #top bar --> search text --> send patients_view
+
         self.pages = QStackedWidget()
         self.section_indexes = {
-            "Patients": self.pages.addWidget(PatientsView()),
-            "Telephone Screening": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Telephone Screening",
-                    "Open a patient from the Patients page to complete this form.",
-                )
-            ),
-            "Questionnaires": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Questionnaires",
-                    "Open a patient from the Patients page to complete questionnaires.",
-                )
-            ),
-            "Medical History": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Medical History",
-                    "Open a patient from the Patients page to complete medical history.",
-                )
-            ),
-            "Family History": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Family History",
-                    "Open a patient from the Patients page to complete family history.",
-                )
-            ),
+            "Patients": self.pages.addWidget(self.patients_view),
             "Imports": self.pages.addWidget(
                 self._build_placeholder_page(
                     "Imports",
@@ -78,19 +67,35 @@ class MainWindow(QMainWindow):
             ),
             "Exports": self.pages.addWidget(PatientExportView()),
             "Settings": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Settings",
-                    "Local database, backup, and app preferences will live here.",
-                )
+                SettingsView()
             ),
+            
         }
 
         body_layout.addWidget(self.sidebar)
         body_layout.addWidget(self.pages, 1)
 
-        root_layout.addWidget(TopBar())
+        self.topbar.menu_clicked.connect(self.toggle_sidebar)
+
+        root_layout.addWidget(self.topbar)
         root_layout.addWidget(body, 1)
         self.setCentralWidget(root)
+
+    def toggle_sidebar(self) -> None:
+        collapsed_width = 0
+        expanded_width = 220
+
+        self.sidebar_animation.stop()
+        self.sidebar_animation.setStartValue(self.sidebar.width())
+
+        if self.sidebar_expanded:
+            self.sidebar_animation.setEndValue(collapsed_width)
+        else:
+            self.sidebar_animation.setEndValue(expanded_width)
+
+        self.sidebar_expanded = not self.sidebar_expanded
+        self.sidebar_animation.start()
+
 
     def show_section(self, section: str) -> None:
         self.pages.setCurrentIndex(self.section_indexes[section])

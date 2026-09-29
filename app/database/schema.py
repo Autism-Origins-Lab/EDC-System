@@ -6,11 +6,23 @@ CREATE TABLE IF NOT EXISTS patients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     subject_id TEXT NOT NULL UNIQUE,
     child_name TEXT,
+    form_status TEXT DEFAULT 'Pending',
     date_of_birth TEXT,
     sex TEXT,
     race TEXT,
+    risk BOOLEAN,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS patients_video (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    title TEXT,
+    file_path TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS telephone_screenings (
@@ -20,6 +32,7 @@ CREATE TABLE IF NOT EXISTS telephone_screenings (
     appointment_date TEXT,
     screener TEXT,
     eligibility TEXT,
+    eligibility_comment TEXT,
     high_familial_risk INTEGER,
     low_familial_risk INTEGER,
     schedule_date TEXT,
@@ -128,8 +141,33 @@ CREATE TABLE IF NOT EXISTS export_logs (
     output_path TEXT NOT NULL,
     exported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS mullen_assessments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    observations TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS mullen_scores(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mullen_assessments_id INTEGER NOT NULL,
+
+  domain TEXT NOT NULL,
+  raw_score INTEGER,
+  t_score INTEGER,
+  band_of_error DECIMAL(5,2),
+  percentile_rank INTEGER,
+  descriptive_category TEXT,
+  age_equivalence INTEGER,
+
+FOREIGN KEY (mullen_assessments_id) REFERENCES mullen_assessments(id) ON DELETE CASCADE
+);
 """
 
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA_SQL)
+
