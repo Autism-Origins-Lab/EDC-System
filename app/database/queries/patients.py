@@ -1,3 +1,4 @@
+import pandas as pd
 import sqlite3
 
 from app.database.connection import get_connection
@@ -194,3 +195,21 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
         connection.commit()    
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
+
+def export_patients_to_csv(file_path: str, patients: list[dict] | None = None) -> None:
+    patients_to_export = patients if patients is not None else list_patients()
+    dataframe = pd.DataFrame(patients_to_export)
+    dataframe.to_csv(
+        file_path,
+        index=False,
+        columns=[
+            "subject_id",
+            "child_name",
+            "eligibility",
+            "comment",
+            "form_status",
+            "screener",
+            "schedule_date",
+        ],
+    )
+    
