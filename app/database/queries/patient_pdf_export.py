@@ -33,19 +33,6 @@ def _text(value) -> str:
     return value if value else "No data"
 
 
-def _section_table(rows: list[tuple[str, str]]) -> Table:
-    table = Table(rows, colWidths=[180, 320])
-    table.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#555555")),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),   # full grid instead of LINEBELOW
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
-    return table
-
 def _section_box(title: str, rows: list[list[tuple[str, str]]]) -> Table:
     data = [[title, "", ""]]
     for row in rows:
@@ -129,7 +116,6 @@ def _section_box_2col(title: str, rows: list[tuple[str, str]], width: int = 468)
         ("TOPPADDING", (0, 0), (-1, 0), 6),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
 
-        # body rows
         ("FONTSIZE", (0, 1), (-1, -1), 10),
         ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),      # bold labels in left column
         ("TEXTCOLOR", (0, 1), (0, -1), colors.HexColor("#555555")),
