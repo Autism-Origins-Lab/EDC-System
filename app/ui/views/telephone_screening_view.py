@@ -1,3 +1,5 @@
+from PySide6.QtCore import Qt
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -13,6 +15,7 @@ from app.database.queries.forms import get_telephone_screening, save_telephone_s
 
 
 class TelephoneScreeningView(QWidget):
+    screening_saved = Signal()
     def __init__(self, patient_id: int):
         super().__init__()
         self.patient_id = patient_id
@@ -33,11 +36,18 @@ class TelephoneScreeningView(QWidget):
 
 
         self.eligibility_combo = QComboBox()
-        self.eligibility_combo.addItems(["Not started", "Yes", "No"])
+        #I noticed that the telephone screening had the values "", "Yes", "No" which is different from the database.
+        #Switched to
+        self.eligibility_combo.addItems(["Not evaluated", "Yes", "No"])
         self.eligibility_combo.currentTextChanged.connect(self.update_comment_visibility)
-
         self.high_risk_checkbox = QCheckBox("High familial risk")
         self.low_risk_checkbox = QCheckBox("Low familial risk")
+        self.high_risk_checkbox.clicked.connect(
+            lambda checked: self.low_risk_checkbox.setChecked(False) if checked else None
+        )
+        self.low_risk_checkbox.clicked.connect(
+            lambda checked: self.high_risk_checkbox.setChecked(False) if checked else None
+        )
 
         self.schedule_date_input = QLineEdit()
         self.birthweight_input = QLineEdit()
@@ -63,6 +73,7 @@ class TelephoneScreeningView(QWidget):
         self.form.addRow("Verbal Consent", self.verbal_consent_combo)
         self.form.addRow("Consent Initials", self.initials_input)
         self.save_button = QPushButton("Save Telephone Screening")
+        self.save_button.setCursor(Qt.PointingHandCursor)
         self.save_button.setObjectName("PrimaryButton") #changed button so it looks consistent 
         self.save_button.clicked.connect(self.save)
 
@@ -100,6 +111,7 @@ class TelephoneScreeningView(QWidget):
 
         self.initials_input.setText(data.get("consent_initials") or "")
 
+
     def collect_data(self) -> dict:
         consent_text = self.verbal_consent_combo.currentText()
         eligibility = self.eligibility_combo.currentText()
@@ -131,10 +143,18 @@ class TelephoneScreeningView(QWidget):
         }
 
     def save(self) -> None:
-        save_telephone_screening(self.patient_id, self.collect_data())
+        data = self.collect_data()
+        try:
+            save_telephone_screening(self.patient_id, data)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Unable to save", str(exc))
+            return
+
 
         QMessageBox.information(
             self,
             "Saved",
             "Telephone screening saved successfully.",
         )
+        self.screening_saved.emit() #signals complete, so that the button can update immediately after save is pressed.
+    

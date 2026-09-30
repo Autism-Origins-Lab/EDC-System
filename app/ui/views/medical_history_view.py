@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QFormLayout,
@@ -63,6 +64,7 @@ class MedicalHistoryView(QWidget):
 
         save_button = QPushButton("Save Medical History")
         save_button.setObjectName("PrimaryButton")
+        save_button.setCursor(Qt.PointingHandCursor)
         save_button.clicked.connect(self.save)
 
         layout.addLayout(form)

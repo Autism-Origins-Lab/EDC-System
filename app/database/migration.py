@@ -6,7 +6,7 @@ from app.database.schema import SCHEMA_SQL
 # updated schema 1 --> 2 (Now includes a patients video table)
 # videos have their own unique id but are also related to their individal patient
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 6
 
 PATIENTS_VIDEO_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS patients_video (
@@ -57,7 +57,6 @@ Handles the following:
 2. patients_video already exists and already has patient_id --> It does nothing, because the table is already correct.
 3. if patients_video exists but has no patient_id --> creates a new table and associated
 """
-
 def migrate_patients_video_table(connection: sqlite3.Connection) -> None:
     table_info = connection.execute("PRAGMA table_info(patients_video)").fetchall()
     columns = {row["name"] for row in table_info}
@@ -92,6 +91,13 @@ def migrate_patients_video_table(connection: sqlite3.Connection) -> None:
 def migrate_mullen_assessments(connection: sqlite3.Connection) -> None:
     connection.executescript(MULLEN_SCHEMA_SQL)
 
+def migrate_patient_risk(connection: sqlite3.Connection) -> None:
+    table_info = connection.execute("PRAGMA table_info(patients)").fetchall()
+    columns = {row["name"] for row in table_info}
+
+    if "risk" not in columns:
+        connection.execute("ALTER TABLE patients ADD COLUMN risk BOOLEAN")
+
 
 def migrate_telephone_screening_comments(connection: sqlite3.Connection) -> None:
     table_info = connection.execute("PRAGMA table_info(telephone_screenings)").fetchall()
@@ -111,16 +117,28 @@ def run_migrations() -> None:
             version = 1
 
         if version < 2:
-            migrate_patients_video_table(connection)
+            connection.execute(
+                "ALTER TABLE patients ADD COLUMN form_status TEXT DEFAULT 'Pending'"
+            )
             set_schema_version(connection, 2)
             version = 2
 
         if version < 3:
-            migrate_mullen_assessments(connection)
-            set_schema_version(connection,3)
+            migrate_patients_video_table(connection)
+            set_schema_version(connection, 3)
             version = 3
 
         if version < 4:
-            migrate_telephone_screening_comments(connection)
+            migrate_mullen_assessments(connection)
             set_schema_version(connection, 4)
             version = 4
+
+        if version < 5:
+            migrate_telephone_screening_comments(connection)
+            set_schema_version(connection, 5)
+            version = 5
+
+        if version < 6:
+            migrate_patient_risk(connection)
+            set_schema_version(connection,6)
+            version = 6
