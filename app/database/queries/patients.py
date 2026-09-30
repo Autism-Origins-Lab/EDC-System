@@ -2,47 +2,70 @@ import sqlite3
 
 from app.database.connection import get_connection
 
-#risk = low risk or high risk, this is already in telephone screenings but it should be helpful to have in the global patients database
-#verbal consent. this is also already in the telephone screenings but it should be helpful to have in the global patients database too 
 PATIENT_FIELDS = {"subject_id", "child_name", "date_of_birth", "sex", "race", "form_status"}
-SORT_OPTIONS = { 
-    "Name (A-Z)": "COALESCE(p.child_name, p.subject_id) ASC",
-    "Name (Z-A)": "COALESCE(p.child_name, p.subject_id) DESC",
-    "Eligibility (Yes)": "eligibility DESC",
-    "Eligibility (No / Not Evaluated)": "eligibility ASC", #exclude
-    "Schedule Date (Earliest First)": "schedule_date ASC",
-    "Schedule Date (Latest First)": "schedule_date DESC",
-    "Newest First": "p.created_at DESC, p.id DESC",
+
+FILTER_YES = "Yes Only"
+FILTER_NO = "No Only"
+FILTER_NOT_EVALUATED = "Not Evaluated Only"
+
+FILTER_HIGH_RISK = "High Risk Only"
+FILTER_LOW_RISK = "Low Risk Only"
+
+ELIGIBILITY_FILTERS = {
+    "Yes Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'yes'",
+    "No Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'no'",
+    "Not Evaluated Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'not evaluated'",
 }
-#Sorting options added to be shown under the filter button.
 
-#command to check database name: python -c "from app.database.connection import get_connection; m = get_connection(); c = m.__enter__(); print(dict(c.execute('PRAGMA database_list').fetchone())['file']); m.__exit__(None, None, None)"
+#deal with this later
 
-#added another column called form_progress that helps mark formed as Pending or Complete.
-            #a form is pending when a new patient is added to the database. a form is complete when it is marked complete and ready to export. 
-            #FOR LATER: a patient's form is marked complete when they are ELIGIBLE and certain details are filled out. 
-            #COALESCE returns the first non null value.
-            
-def list_patients(sort_by: str = "Newest First") -> list[dict]:
-    order_clause = SORT_OPTIONS.get(sort_by, "p.created_at DESC, p.id DESC")
-    with get_connection() as connection:
-        rows = connection.execute(
-            f"""
+RISK_FILTERS = {
+    #might be better to change telephone screenings to boolean 
+    "High Only": "LOWER(TRIM(COALESCE(high_familial_risk, ''))) = 'True'",
+    "Low Only": "LOWER(TRIM(COALESCE(low_familial_risk, ''))) = 'True'",
+}
+#ignore for now
+
+SORT_OPTIONS = {
+    "Name (A-Z)": "COALESCE(child_name, subject_id) COLLATE NOCASE ASC",
+    "Name (Z-A)": "COALESCE(child_name, subject_id) COLLATE NOCASE DESC",
+    "Schedule Date (Earliest First)": "schedule_date IS NULL, schedule_date ASC",
+    "Schedule Date (Latest First)": "schedule_date IS NULL, schedule_date DESC",
+    "Newest First": "created_at DESC, id DESC",
+}
+
+
+def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None = None,) -> list[dict]:
+    order_by = SORT_OPTIONS.get(sort_by, SORT_OPTIONS["Newest First"])
+    where = ELIGIBILITY_FILTERS.get(eligibility_filter)
+
+    where = None
+    if eligibility_filter is not None:
+        where = ELIGIBILITY_FILTERS[eligibility_filter]
+
+    query = """
+        SELECT * FROM (
             SELECT
                 p.id,
                 p.subject_id,
-                COALESCE(p.child_name, '') AS child_name,
-                COALESCE(ts.eligibility, 'Not evaluated') AS eligibility,
-                COALESCE(p.risk, 'Not evaluated') AS risk,
-                COALESCE(ts.eligibility_comment, '') AS comment,
-                COALESCE(p.form_status, 'Pending') AS form_status,
-                COALESCE(ts.screener, '') AS screener, 
-                COALESCE(ts.schedule_date, '') AS schedule_date
+                p.child_name,
+                p.form_status,
+                p.created_at,
+                ts.eligibility,
+                ts.screener,
+                ts.schedule_date,
+                ts.eligibility_comment AS comment
             FROM patients p
             LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
-            ORDER BY {order_clause}
-            """
-        ).fetchall()
+        )
+    """
+    if where:
+        query += f" WHERE {where}"
+    query += f" ORDER BY {order_by}"
+
+    with get_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(query).fetchall()
     return [dict(row) for row in rows]
 
 
@@ -151,20 +174,15 @@ def update_patient_form(patient_id: int, status: str) -> None: #database method 
                 WHERE id = ?
                 """,
                 (status, patient_id),
-            #for later, I want to make it so that you are only able to mark complete manually IF the patient is eligible.
             )
         connection.commit()        
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
 
 
-# patient immediately uneligibile (seizure or medical reason OR 3+ months old) -> mark reason
-# age should be in months 
-# if patient is 'No' for eligibility, dropdown textbox for reason why
-
-# born before 37 weeks -> no illegble
-# age limit max 2 months and 2 weeks (before 3 months)
-
+#screening questionaire -> months (if >= 3 months, mark ineligible.)
+#gestational age (telephone screening) -> weeks (if <37 automatically mark ineligible.)
+#default value for eligibility should be not evaluated, not N/A
 
 def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None: #can't mark eligible on certain conditions TBA
   with get_connection() as connection:
