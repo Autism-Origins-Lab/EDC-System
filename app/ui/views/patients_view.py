@@ -213,7 +213,6 @@ class PatientsView(QWidget):
         
         # Sorting options added to a filter menu
 
-        controls.addWidget(self.eligibility_filter_group)
         controls.addWidget(export_csv_button)
 
         self.table = QTableWidget()
