@@ -14,7 +14,7 @@ FILTER_LOW_RISK = "Low Risk Only"
 ELIGIBILITY_FILTERS = {
     "Yes Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'yes'",
     "No Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'no'",
-    "Not Evaluated Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'not evaluated'",
+    "Not Evaluated Only": "LOWER(TRIM(COALESCE(ts.eligibility, ''))) IN ('not evaluated', '') OR ts.eligibility IS NULL",
 }
 
 #deal with this later
@@ -104,8 +104,7 @@ def get_patient(patient_id: int) -> dict | None:
 
 
 def update_patient(patient_id: int, data: dict) -> None:
-    fields = [key for key in data if key in PATIENT_FIELDS] # building a list of keys and extract corresponding values instead of relying on data.items() directly 
-    #less risk of a mismatch.
+    fields = [key for key in data if key in PATIENT_FIELDS]
     if not fields:
         return
 

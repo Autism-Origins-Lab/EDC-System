@@ -107,7 +107,7 @@ class PatientsView(QWidget):
         title_block.addWidget(title)
         title_block.addWidget(subtitle)
 
-        new_patient = QPushButton("+ Patient")
+        new_patient = QPushButton("🞦 Patient")
         new_patient.setStyleSheet(self.new_patient_style())
         new_patient.setCursor(Qt.PointingHandCursor)
         new_patient.setObjectName("PrimaryButton")
@@ -171,15 +171,15 @@ class PatientsView(QWidget):
         self.sort_button.setMenu(sort_menu)
         controls.addWidget(self.sort_button)
 
-        eligibility_label = QLabel("Eligibility: ")
+        eligibility_label = QLabel("Status: ")
         eligibility_label.setStyleSheet("font-weight: bold; color: #120713")
         controls.addWidget(eligibility_label)
 
         self.eligibility_filter_group = QButtonGroup(self)
         self.eligibility_filter_group.setExclusive(True)
         all = QPushButton("All")
-        yes = QPushButton("Yes")
-        no = QPushButton("No")
+        yes = QPushButton("Eligible")
+        no = QPushButton("Ineligible")
         not_eval = QPushButton("Not Evaluated")
 
         filter_configs = [
@@ -344,20 +344,20 @@ class PatientsView(QWidget):
             status = patient.get("form_status", "Pending")
             if status == "Pending": 
                 pending_forms += 1
-            if status == "Complete": 
+            elif status == "Complete": 
                 completed_forms += 1
 
             values = [
-                    patient.get("subject_id", "N/A"),
-                    patient.get("child_name", "N/A"),
-                    patient.get("eligibility", "Not evaluated"),
-                    patient.get("screener", "N/A"),
-                    patient.get("schedule_date", "N/A"),
-                    patient.get("comment", ""),
+                    patient.get("subject_id") or "N/A",
+                    patient.get("child_name") or "N/A",
+                    patient.get("eligibility") or "Problem with eligibility",
+                    patient.get("screener") or "N/A",
+                    patient.get("schedule_date") or "N/A",
+                    patient.get("comment") or "",
                 ]
 
             for column_index, value in enumerate(values):
-                item = QTableWidgetItem(str(value) if value is not None else "N/A")
+                item = QTableWidgetItem(str(value))
                 item.setForeground(Qt.GlobalColor.black)
                 item.setData(Qt.UserRole, patient.get("id"))
                 self.table.setItem(row_index, column_index, item)
