@@ -2,9 +2,12 @@ from PySide6.QtCore import Qt, Signal, Slot, QRectF
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QFrame,
+    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
+    QMessageBox,
     QMenu,
     QPushButton,
     QTableWidget,
@@ -21,7 +24,9 @@ from app.database.queries.patients import (
     list_patients,
     FILTER_YES,
     FILTER_NO,
-    FILTER_NOT_EVALUATED
+    FILTER_NOT_EVALUATED,
+    export_patients_to_csv,
+    list_patients
 )
 from app.ui.views.new_patient_dialog import NewPatientDialog
 from app.ui.views.patient_detail_view import PatientDetailView
@@ -201,6 +206,15 @@ class PatientsView(QWidget):
     
         all.setChecked(True)
         controls.addStretch()
+        export_csv_button = QPushButton("Export CSV")
+        export_csv_button.setObjectName("SecondaryButton")
+        export_csv_button.setCursor(Qt.PointingHandCursor)
+        export_csv_button.clicked.connect(self.export_patients_to_csv)
+        
+        # Sorting options added to a filter menu
+
+        controls.addWidget(self.eligibility_filter_group)
+        controls.addWidget(export_csv_button)
 
         self.table = QTableWidget()
         self.table.setSelectionMode(QAbstractItemView.NoSelection)
@@ -463,3 +477,26 @@ class PatientsView(QWidget):
             height: 0px;
         }}
         """
+
+    def export_patients_to_csv(self) -> None:
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Patients List to CSV",
+            "untitled.csv",
+            "CSV Files (*.csv)",
+        )
+    
+        if file_path:
+            try:
+                export_patients_to_csv(file_path, self.patients)
+                QMessageBox.information(
+                    self,
+                    "Export Successful",
+                    f"Patients exported to {file_path}",
+                )
+            except Exception as exc:
+                QMessageBox.critical(
+                    self,
+                    "Export Failed",
+                    f"An error occurred while exporting patients list: {exc}",
+                )
