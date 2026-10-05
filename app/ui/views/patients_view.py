@@ -15,22 +15,32 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QAbstractItemView,
-    QSizePolicy
+    QSizePolicy,
+    QButtonGroup
 
 )
 
 from app.database.queries.patients import (
+    list_patients,
+    FILTER_YES,
+    FILTER_NO,
+    FILTER_NOT_EVALUATED,
     export_patients_to_csv,
     list_patients
 )
 from app.ui.views.new_patient_dialog import NewPatientDialog
 from app.ui.views.patient_detail_view import PatientDetailView
 
+PENDING_COLOR = "#D00B60"
+READY_COLOR = "#08AEA9"
+EDGE_COLOR = "#5C5C5C"
+BLUE_COLOR = "#166AB8"
+
 class DonutChart(QWidget):
     #just draw arcs with QPainter w/ PySide6. no difference in styling
     def __init__(self):
         super().__init__()
-        self.segments: list[tuple[str,int,str]] = []
+        self._segments: list[tuple[str,int,str]] = []
         #label, value, color
         self._center_value: int = 0 #this will be total # of patients
         self.setMinimumSize(140,140)
@@ -81,10 +91,10 @@ class PatientsView(QWidget):
     def __init__(self):
         super().__init__()
         self.patients: list[dict] = []
+
         self.current_sort = "Newest First"
-
+        self.current_eligibility_filter: str | None = None
         self.current_search_text = ""
-
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 28, 28, 18)
@@ -102,7 +112,7 @@ class PatientsView(QWidget):
         title_block.addWidget(title)
         title_block.addWidget(subtitle)
 
-        new_patient = QPushButton("New Patient")
+        new_patient = QPushButton("🞦 Patient")
         new_patient.setStyleSheet(self.new_patient_style())
         new_patient.setCursor(Qt.PointingHandCursor)
         new_patient.setObjectName("PrimaryButton")
@@ -110,7 +120,6 @@ class PatientsView(QWidget):
 
         header.addLayout(title_block)
         header.addStretch()
-        header.addWidget(new_patient)
 
         #change view -> visuals
         metrics = QHBoxLayout()
@@ -128,15 +137,15 @@ class PatientsView(QWidget):
         legend = QVBoxLayout()
         legend.setSpacing(10)
         self.pending_forms_row, self.pending_forms_label = self._legend_item(
-            "#D00B60", "Pending forms"
+            PENDING_COLOR, "Pending forms"
         )
         self.ready_exports_row, self.ready_exports_label = self._legend_item(
-            "#08AEA9", "Ready exports"
+            READY_COLOR, "Ready exports"
         )
 
         #this is just a test to see what pending vs complete vs neither would look like.
         self.edge_case_row, self.edge_case_label = self._legend_item(
-            "#5C5C5C", "(edge case)"
+            EDGE_COLOR, "(edge case)"
         )
         legend.addWidget(self.pending_forms_row)
         legend.addWidget(self.ready_exports_row)
@@ -150,20 +159,53 @@ class PatientsView(QWidget):
 
    
         controls = QHBoxLayout()
+        controls.setSpacing(10)
+        controls.addWidget(new_patient)
 
-        filter_button = QPushButton("Filter")
-        filter_button.setObjectName("SecondaryButton")
-        filter_button.setCursor(Qt.PointingHandCursor)
+        self.sort_button = QPushButton(f"Sort: {self.current_sort}")
+        self.sort_button.setObjectName("SecondaryButton")
+        self.sort_button.setCursor(Qt.PointingHandCursor)
 
-        filter_menu = QMenu(self)
-        filter_menu.addAction("Name (A-Z)", lambda: self.apply_sort("Name (A-Z)"))
-        filter_menu.addAction("Name (Z-A)", lambda: self.apply_sort("Name (Z-A)"))
-        filter_menu.addAction("Eligibility (Yes First)", lambda: self.apply_sort("Eligibility (Yes First)"))
-        filter_menu.addAction("Eligibility (No First)", lambda: self.apply_sort("Eligibility (No First)"))
-        filter_menu.addAction("Schedule Date (Earliest First)", lambda: self.apply_sort("Schedule Date (Earliest First)"))
-        filter_menu.addAction("Schedule Date (Latest First)", lambda: self.apply_sort("Schedule Date (Latest First)"))
-        filter_button.setMenu(filter_menu)
 
+        sort_menu = QMenu(self)
+        sort_menu.addAction("Name (A-Z)", lambda: self.apply_sort("Name (A-Z)"))
+        sort_menu.addAction("Name (Z-A)", lambda: self.apply_sort("Name (Z-A)"))
+        sort_menu.addAction("Schedule Date (Earliest First)", lambda: self.apply_sort("Schedule Date (Earliest First)"))
+        sort_menu.addAction("Schedule Date (Latest First)", lambda: self.apply_sort("Schedule Date (Latest First)"))
+        sort_menu.addAction("Newest First", lambda: self.apply_sort("Newest First"))
+        self.sort_button.setMenu(sort_menu)
+        controls.addWidget(self.sort_button)
+
+        eligibility_label = QLabel("Status: ")
+        eligibility_label.setStyleSheet("font-weight: bold; color: #120713")
+        controls.addWidget(eligibility_label)
+
+        self.eligibility_filter_group = QButtonGroup(self)
+        self.eligibility_filter_group.setExclusive(True)
+        all = QPushButton("All")
+        yes = QPushButton("Eligible")
+        no = QPushButton("Ineligible")
+        not_eval = QPushButton("Not Evaluated")
+
+        filter_configs = [
+            (all, None),
+            (yes, FILTER_YES),
+            (no, FILTER_NO),
+            (not_eval, FILTER_NOT_EVALUATED)
+        ]
+        self.all = all
+
+        for btn, filter_value in filter_configs:
+            btn.setCheckable(True)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(self.button_style())
+            btn.setObjectName("SecondaryButton")
+            self.eligibility_filter_group.addButton(btn)
+            btn.clicked.connect(lambda _, val=filter_value: self.apply_eligibility_filter(val))
+            controls.addWidget(btn)
+    
+        all.setChecked(True)
+        controls.addStretch()
         export_csv_button = QPushButton("Export CSV")
         export_csv_button.setObjectName("SecondaryButton")
         export_csv_button.setCursor(Qt.PointingHandCursor)
@@ -171,7 +213,6 @@ class PatientsView(QWidget):
         
         # Sorting options added to a filter menu
 
-        controls.addWidget(filter_button)
         controls.addWidget(export_csv_button)
 
         self.table = QTableWidget()
@@ -184,8 +225,13 @@ class PatientsView(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table.cellDoubleClicked.connect(self.open_patient_detail)
+        self.table.cellClicked.connect(self.open_patient_detail)
         self.table.viewport().setCursor(Qt.PointingHandCursor)
+        self.table.setStyleSheet(self.table_style)
+
+        header_view = self.table.horizontalHeader()
+        header_view.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header_view.setHighlightSections(False)
 
         layout.addLayout(header)
         layout.addLayout(metrics)
@@ -196,20 +242,30 @@ class PatientsView(QWidget):
 
     @staticmethod
     def new_patient_style() -> str:
-        return """
-        QPushButton {
-            background-color: #166AB8;
+        return f"""
+        QPushButton {{
+            background-color: {BLUE_COLOR};
             color: #FFFFFF;
             border-radius: 20px;
             padding: 12px 16px;
-        }
-            QPushButton:hover {
+        }}
+            QPushButton:hover {{
             background-color: #115492;
-        }
-        QPushButton:pressed {
+        }}
+        QPushButton:pressed {{
             background-color: #115492;
-        }
+        }}
         """
+    @staticmethod
+    def button_style() -> str:
+         return """
+                 QPushButton:hover {
+                    background-color: #F1F5F9;
+                }
+                QPushButton:pressed {
+                    background-color: #F1F5F9;
+                }
+                """
 
     def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
         row = QWidget()
@@ -242,13 +298,21 @@ class PatientsView(QWidget):
         self.current_search_text = search_text
         self.load_patients()
 
-    def load_patients(self) -> None: #I removed the table search because patients is sorted via filter menu
-        #search is now in topbar's global search..
-        patients = list_patients(sort_by=self.current_sort)
+    def apply_eligibility_filter(self, choice: str | None) -> None:
+        self.current_eligibility_filter = choice
+        self.load_patients()
 
+    def load_patients(self) -> None:
+        patients = list_patients(
+            sort_by=self.current_sort,
+            eligibility_filter=self.current_eligibility_filter,
+        )
         if self.current_search_text:
             patients = self.filter_by_search(patients, self.current_search_text)
         self.update_table(patients)
+
+        print("filter:", self.current_eligibility_filter, "| sort:", self.current_sort) #debugging
+
 
     @staticmethod
     def filter_by_search(patients: list[dict], search_text:str) -> list[dict]:
@@ -293,20 +357,20 @@ class PatientsView(QWidget):
             status = patient.get("form_status", "Pending")
             if status == "Pending": 
                 pending_forms += 1
-            if status == "Complete": 
+            elif status == "Complete": 
                 completed_forms += 1
 
             values = [
-                    patient.get("subject_id", "N/A"),
-                    patient.get("child_name", "N/A"),
-                    patient.get("eligibility", "N/A"),
-                    patient.get("screener", "N/A"),
-                    patient.get("schedule_date", "N/A"),
-                    patient.get("comment", ""),
+                    patient.get("subject_id") or "N/A",
+                    patient.get("child_name") or "N/A",
+                    patient.get("eligibility") or "Problem with eligibility",
+                    patient.get("screener") or "N/A",
+                    patient.get("schedule_date") or "N/A",
+                    patient.get("comment") or "",
                 ]
 
             for column_index, value in enumerate(values):
-                item = QTableWidgetItem(str(value) if value is not None else "N/A")
+                item = QTableWidgetItem(str(value))
                 item.setForeground(Qt.GlobalColor.black)
                 item.setData(Qt.UserRole, patient.get("id"))
                 self.table.setItem(row_index, column_index, item)
@@ -321,11 +385,12 @@ class PatientsView(QWidget):
 
         self.metrics_donut_chart.set_segments(
             [
-                ("Pending forms", pending_forms, "#D82454"),
-                ("Ready exports", completed_forms, "#44CCAA"),
+                ("Pending forms", pending_forms, PENDING_COLOR),
+                ("Ready exports", completed_forms, READY_COLOR),
             ],
             center_value=len(self.patients),
         )
+        
 
     def open_new_patient_dialog(self) -> None:
         dialog = NewPatientDialog(self)
@@ -347,7 +412,70 @@ class PatientsView(QWidget):
         dialog = PatientDetailView(patient_id, self)
         dialog.exec()
         self.load_patients()
-        self.patie
+        self.patient_data_changed.emit()
+
+    table_style = f""" 
+        QTableWidget {{ /*Items in the table */
+            background-color: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            gridline-color: #EDF2F7;
+            font-size: 13px;
+            color: #1A202C;
+            outline: none;
+        }}
+
+        QTableWidget::item {{
+            padding: 10px 12px;
+            border-bottom: 1px solid #EDF2F7;
+        }}
+
+        QTableWidget::item:hover {{
+            background-color: #F1F5F9;
+        }}
+
+        QTableWidget::item:selected {{
+            background-color: #913899;
+            color: #FFFFFF;
+        }}
+
+        QHeaderView::section {{
+            background-color: #115492;
+            color: #FCFCFD;
+            font-weight: bold;
+            font-size: 12px;
+            text-transform: uppercase;
+            padding: 10px 12px;
+            border: none;
+            border-bottom: 2px solid #E2E8F0;
+            border-right: 1px solid #EDF2F7;
+        }}
+
+        QHeaderView::section:last {{
+            border-right: none;
+        }}
+
+        QScrollBar:vertical {{
+            border: none;
+            background: #F7FAFC;
+            width: 8px;
+            border-radius: 4px;
+        }}
+
+        QScrollBar::handle:vertical {{
+            background: #CBD5E0;
+            border-radius: 4px;
+            min-height: 20px;
+        }}
+
+        QScrollBar::handle:vertical:hover {{
+            background: #A0AEC0;
+        }}
+
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            height: 0px;
+        }}
+        """
 
     def export_patients_to_csv(self) -> None:
         file_path, _ = QFileDialog.getSaveFileName(

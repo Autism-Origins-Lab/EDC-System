@@ -30,6 +30,7 @@ class TopBar(QFrame):
         search.setObjectName("GlobalSearch")
         search.setPlaceholderText("Search for a specific patient (Child name or Child name, Subject  ID)")
         search.setFixedWidth(420)
+        search.setStyleSheet("border-radius: 9999px")
         search.textChanged.connect(self.search_changed.emit)
 
         layout.addWidget(menu_button)

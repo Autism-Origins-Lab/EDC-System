@@ -65,7 +65,7 @@ class ScreeningQuestionnaireView(QWidget):
         form.addRow("Parent Name", self.parent_name_input)
         form.addRow("Child Name", self.child_name_input)
         form.addRow("Date of Birth", self.date_of_birth_input)
-        form.addRow("Age", self.age_input)
+        form.addRow("Age (months)", self.age_input)
         form.addRow("Sex", self.sex_combo)
         form.addRow("Race", self.race_input)
         form.addRow("Address", self.address_input)
