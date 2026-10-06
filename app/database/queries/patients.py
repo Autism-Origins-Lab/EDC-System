@@ -15,7 +15,7 @@ FILTER_LOW_RISK = "Low Risk Only"
 ELIGIBILITY_FILTERS = {
     "Yes Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'yes'",
     "No Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'no'",
-    "Not Evaluated Only": "LOWER(TRIM(COALESCE(ts.eligibility, ''))) IN ('not evaluated', '') OR ts.eligibility IS NULL",
+    "Not Evaluated Only": "eligibility = 'Not evaluated'",
 }
 
 #deal with this later
@@ -38,11 +38,7 @@ SORT_OPTIONS = {
 
 def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None = None,) -> list[dict]:
     order_by = SORT_OPTIONS.get(sort_by, SORT_OPTIONS["Newest First"])
-    where = ELIGIBILITY_FILTERS.get(eligibility_filter)
-
-    where = None
-    if eligibility_filter is not None:
-        where = ELIGIBILITY_FILTERS[eligibility_filter]
+    where = ELIGIBILITY_FILTERS.get(eligibility_filter) if eligibility_filter else None
 
     query = """
         SELECT * FROM (
@@ -52,7 +48,7 @@ def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None 
                 p.child_name,
                 p.form_status,
                 p.created_at,
-                ts.eligibility,
+                COALESCE(NULLIF(TRIM(ts.eligibility), ''), 'Not evaluated') AS eligibility,
                 ts.screener,
                 ts.schedule_date,
                 ts.eligibility_comment AS comment
@@ -93,7 +89,7 @@ def get_patient(patient_id: int) -> dict | None:
             """
             SELECT 
                 p.*,
-                COALESCE(ts.eligibility, 'Not Evaluated') AS eligibility
+                COALESCE(NULLIF(TRIM(ts.eligibility), ''), 'Not evaluated') AS eligibility
             FROM patients p
             LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
             WHERE p.id = ?
@@ -112,7 +108,7 @@ def update_patient(patient_id: int, data: dict) -> None:
     assignments = ", ".join(f"{field} = ?" for field in fields)
     values = [data[field] for field in fields] + [patient_id]
 
-    with sqlite3.connect("data/patient_data.db") as connection:
+    with get_connection() as connection:
         connection.execute(
             f"""
             UPDATE patients
@@ -122,8 +118,6 @@ def update_patient(patient_id: int, data: dict) -> None:
             """,
             values,
         )
-    connection.commit()   
-
 
 def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dict]:
     cleaned_search = search_text.strip().lower()
@@ -140,7 +134,7 @@ def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dic
                 p.id,
                 p.subject_id,
                 COALESCE(p.child_name, '') AS child_name,
-                COALESCE(ts.eligibility, 'Not started') AS eligibility,
+                COALESCE(ts.eligibility, 'Not evaluated') AS eligibility,
                 COALESCE(ts.eligibility_comment, '') AS comment,
                 COALESCE(p.form_status, 'Pending') AS form_status,
                 COALESCE(ts.screener, '') AS screener,
@@ -151,7 +145,7 @@ def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dic
             WHERE
                 LOWER(p.subject_id) LIKE ?
                 OR LOWER(COALESCE(p.child_name, '')) LIKE ?
-                OR LOWER(COALESCE(ts.eligibility, 'Not started')) LIKE ?
+                OR LOWER(COALESCE(NULLIF(TRIM(ts.eligibility), ''), 'Not evaluated')) LIKE ?
                 OR LOWER(COALESCE(p.form_status, 'Pending')) LIKE ?
                 OR LOWER(COALESCE(ts.screener, '')) LIKE ?
                 OR LOWER(COALESCE(ts.schedule_date, '')) LIKE ?
@@ -197,7 +191,7 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
                  UPDATE telephone_screenings
                  SET eligibility = ?,
                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?
+                 WHERE patient_id = ?
                  """,
                 (eligibility_status, patient_id),
             )
@@ -210,8 +204,6 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
                        (patient_id, eligibility_status),
                     )
         connection.commit()    
-        if cursor.rowcount == 0:
-            raise ValueError(f"There is no patient with id {patient_id}.")
 
 def export_patients_to_csv(file_path: str, patients: list[dict] | None = None) -> None:
     patients_to_export = patients if patients is not None else list_patients()
