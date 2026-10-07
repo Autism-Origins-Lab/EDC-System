@@ -112,7 +112,9 @@ def update_patient(patient_id: int, data: dict) -> None:
     assignments = ", ".join(f"{field} = ?" for field in fields)
     values = [data[field] for field in fields] + [patient_id]
 
-    with sqlite3.connect("data/patient_data.db") as connection:
+    # get_connection() uses config.DATABASE_PATH, so tests write to their
+    # temporary database instead of the real one, and it commits for us.
+    with get_connection() as connection:
         connection.execute(
             f"""
             UPDATE patients
@@ -122,7 +124,6 @@ def update_patient(patient_id: int, data: dict) -> None:
             """,
             values,
         )
-    connection.commit()   
 
 
 def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dict]:
