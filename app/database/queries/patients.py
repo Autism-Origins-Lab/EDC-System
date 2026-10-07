@@ -18,14 +18,10 @@ ELIGIBILITY_FILTERS = {
     "Not Evaluated Only": "eligibility = 'Not evaluated'",
 }
 
-#deal with this later
-
-RISK_FILTERS = {
-    #might be better to change telephone screenings to boolean 
-    "High Only": "LOWER(TRIM(COALESCE(high_familial_risk, ''))) = 'True'",
-    "Low Only": "LOWER(TRIM(COALESCE(low_familial_risk, ''))) = 'True'",
+RISK_FILTERS = { #need to find out how to read boolean values 
+    "High Only": "LOWER(TRIM(COALESCE(atRisk, ''))) = True",
+    "Low Only": "LOWER(TRIM(COALESCE(atRisk, ''))) = False",
 }
-#ignore for now
 
 SORT_OPTIONS = {
     "Name (A-Z)": "COALESCE(child_name, subject_id) COLLATE NOCASE ASC",
@@ -49,6 +45,7 @@ def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None 
                 p.form_status,
                 p.created_at,
                 COALESCE(NULLIF(TRIM(ts.eligibility), ''), 'Not evaluated') AS eligibility,
+                ts.atRisk AS at_risk,
                 ts.screener,
                 ts.schedule_date,
                 ts.eligibility_comment AS comment

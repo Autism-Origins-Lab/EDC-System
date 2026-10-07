@@ -132,8 +132,12 @@ class PatientDetailView(QDialog):
 
     def is_eligible(self):
          eligibility_status = self.patient.get("eligibility") if self.patient else None
+         #trying to evaluate risk. and filter eligibility.
+         risk_status = self.patient.get("at_risk") if self.patient else None
          if eligibility_status == "Yes":
               return True
+         if risk_status:
+              return False
          return False
          
     def is_complete(self):
