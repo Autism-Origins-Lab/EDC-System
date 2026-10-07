@@ -14,6 +14,7 @@ from app.ui.sidebar import Sidebar
 from app.ui.topbar import TopBar
 from app.ui.views.patients_view import PatientsView
 from app.ui.views.summary_view import PatientExportView
+from app.ui.views.appointment_view import appointmentView
 from app.ui.views.settings_view import SettingsView
 
 # Export patient data to excel sheet or a patient summary 
@@ -64,7 +65,12 @@ class MainWindow(QMainWindow):
                     "Spreadsheet import tools will live here after the core forms are stable.",
                 )
             ),
-            "Exports": self.pages.addWidget(PatientExportView()),
+            "Exports": self.pages.addWidget(
+                PatientExportView()
+            ),
+            "Appointments": self.pages.addWidget(
+                appointmentView()
+            ),
             "Settings": self.pages.addWidget(
                 SettingsView()
             ),
