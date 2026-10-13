@@ -8,13 +8,19 @@ The application is a Python/PySide6 desktop app backed by a local SQLite databas
 
 - Patient dashboard with search, patient metrics, and a table of participant records.
 - New patient creation with unique Subject ID validation.
-- Patient detail dialog with tabs for:
+- Patient workspace with left navigation for:
   - Overview
   - Telephone Screening
   - Screening Questionnaire
   - Medical History
   - Family Medical History
   - Procedure Schedule
+  - Mullen Assessment
+  - Video References
+- Editable overview with shared participant identity and familial risk.
+- Active-section saving and save/discard/cancel prompts when navigating or closing with edits.
+- Persistent local settings for theme, table density, startup page, date display, and safety prompts.
+- Patient deletion with cascading related-record cleanup and optional confirmation.
 - SQLite-backed save/load helpers for patient records and form data.
 - Versioned database migrations using SQLite `PRAGMA user_version`.
 - Backend Excel export support for core database tables.
@@ -31,21 +37,31 @@ app/
   database/
     connection.py             SQLite connection context manager
     schema.py                 Full database schema for new databases
-    migration.py              Versioned migrations for existing databases
-    queries/
-      patients.py             Patient create/read/update/search queries
-      forms.py                Form and procedure schedule queries
-      videos.py               Patient video path queries
-      exports.py              Excel workbook export helper
+    migrations/
+      runner.py               Orders and applies pending migrations
+      versions/               Immutable migration modules (v001, v002, ...)
+    repositories/
+      patients.py             Patient create/read/update/search persistence
+      forms.py                Form and procedure schedule persistence
+      videos.py               Patient video path persistence
+  services/
+    exports.py                Excel workbook export service
+    preferences.py            Local preference persistence and date formatting
   ui/
     main_window.py            Main PySide6 window
-    sidebar.py                Sidebar navigation
-    topbar.py                 Top navigation/header
     theme.py                  Qt stylesheet
-    views/                    Patient dashboard, dialogs, and form tabs
+    components/               Shared sidebar and topbar components
+    pages/                    Patient dashboard and settings pages
+    dialogs/                  New-patient and patient-workspace dialogs
+    forms/                    Patient overview, form, assessment, and video views
 
-tests/                        Pytest coverage for schema, patient queries, forms, and exports
-OLD-SYSTEM/                   Legacy CSV-to-SQL prototype and sample data
+scripts/
+  seed_database.py            Local fake-data seeding utility
+
+tests/
+  database/                   Schema, repository, and migration tests
+  services/                   Export service tests
+  ui/                         Page, dialog, and form tests
 ```
 
 ## Requirements
@@ -87,6 +103,9 @@ data/patient_data.db
 
 Local database files are ignored by Git.
 
+Application preferences are stored separately at `data/preferences.json`. This file is
+also local-only and is ignored by Git; deleting it restores the built-in defaults.
+
 The schema is centered on the `patients` table. Related tables use `patient_id` foreign keys with `ON DELETE CASCADE` so records stay tied to their patient:
 
 - `patients`
@@ -113,13 +132,14 @@ Run a smaller database-focused set:
 
 ```powershell
 $env:PYTHONPATH="."
-pytest tests/test_schema.py tests/test_patient_queries.py tests/test_form_queries.py tests/test_exports.py
+pytest tests/database/test_schema.py tests/database/test_patient_queries.py tests/database/test_form_queries.py tests/services/test_exports.py
 ```
 
 ## Development Notes
 
 - Use `schema.py` for the full schema expected by a brand-new database.
-- Use `migration.py` for incremental changes needed by already-existing databases.
-- Use query modules under `app/database/queries/` as the UI-facing data access layer.
+- Add incremental database changes as a new immutable module under `app/database/migrations/versions/`.
+- Register new migration modules in `app/database/migrations/runner.py`; never edit a migration that may already have run.
+- Use repository modules under `app/database/repositories/` as the UI-facing data access layer.
+- Keep export generation and other application operations under `app/services/`.
 - The app currently stores data locally only; no remote database or account service is configured.
-- `OLD-SYSTEM/` is kept as a reference for the previous CSV-to-SQL import work.
