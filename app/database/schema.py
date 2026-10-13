@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS patients (
     date_of_birth TEXT,
     sex TEXT,
     race TEXT,
+    risk INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,7 +33,8 @@ CREATE TABLE IF NOT EXISTS telephone_screenings (
     screener TEXT,
     eligibility TEXT,
     eligibility_comment TEXT,
-    atRisk BOOLEAN,
+    high_familial_risk INTEGER,
+    low_familial_risk INTEGER,
     schedule_date TEXT,
     birthweight TEXT,
     gestational TEXT,

@@ -139,7 +139,7 @@ def _save_one_to_one_form(table_name: str, patient_id: int, data: dict) -> None:
             
             if high and low:
                 raise ValueError("Select either high or low familial risk, not both.")
-            risk = True if high else False if low else None
+            risk = 1 if high else 0 if low else None
             
             # Commit the screening and patient risk together.
             connection.execute(

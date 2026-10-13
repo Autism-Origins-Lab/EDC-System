@@ -94,9 +94,14 @@ def migrate_mullen_assessments(connection: sqlite3.Connection) -> None:
 def migrate_patient_risk(connection: sqlite3.Connection) -> None:
     table_info = connection.execute("PRAGMA table_info(patients)").fetchall()
     columns = {row["name"] for row in table_info}
-
     if "risk" not in columns:
         connection.execute("ALTER TABLE patients ADD COLUMN risk BOOLEAN")
+
+def migrate_patient_form(connection: sqlite3.Connection) -> None:
+    table_info = connection.execute("PRAGMA table_info(patients)").fetchall()
+    columns = {row["name"] for row in table_info}
+    if "form_status" not in columns: 
+        connection.execute("ALTER TABLE patients ADD COLUMN form_status TEXT DEFAULT 'Pending'")
 
 
 def migrate_telephone_screening_comments(connection: sqlite3.Connection) -> None:
@@ -117,9 +122,7 @@ def run_migrations() -> None:
             version = 1
 
         if version < 2:
-            connection.execute(
-                "ALTER TABLE patients ADD COLUMN form_status TEXT DEFAULT 'Pending'"
-            )
+            migrate_patient_form(connection)
             set_schema_version(connection, 2)
             version = 2
 
