@@ -25,6 +25,9 @@ from app.database.queries.patients import (
     FILTER_YES,
     FILTER_NO,
     FILTER_NOT_EVALUATED,
+    FILTER_HIGH_RISK,
+    FILTER_LOW_RISK,
+    FILTER_NOT_EVALUATED_RISK,
     export_patients_to_csv,
     list_patients
 )
@@ -93,6 +96,7 @@ class PatientsView(QWidget):
         self.patients: list[dict] = []
 
         self.current_sort = "Newest First"
+        self.current_risk_filter: str | None = None
         self.current_eligibility_filter: str | None = None
         self.current_search_text = ""
 
@@ -187,7 +191,19 @@ class PatientsView(QWidget):
         no = QPushButton("Ineligible")
         not_eval = QPushButton("Not Evaluated")
 
-        filter_configs = [
+        self.risk_filter_group = QButtonGroup(self)
+        self.risk_filter_group.setExclusive(True)
+        high = QPushButton("High Risk")
+        low = QPushButton("Low Risk")
+        noRisk = QPushButton("Unknown Risk")
+
+        risk_filter_configs = [
+            (high, FILTER_HIGH_RISK),
+            (low, FILTER_LOW_RISK),
+            (noRisk, FILTER_NOT_EVALUATED_RISK)
+        ]
+
+        eligibility_filter_configs = [
             (all, None),
             (yes, FILTER_YES),
             (no, FILTER_NO),
@@ -195,7 +211,8 @@ class PatientsView(QWidget):
         ]
         self.all = all
 
-        for btn, filter_value in filter_configs:
+
+        for btn, filter_value in eligibility_filter_configs:
             btn.setCheckable(True)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet(self.button_style())
@@ -203,6 +220,19 @@ class PatientsView(QWidget):
             self.eligibility_filter_group.addButton(btn)
             btn.clicked.connect(lambda _, val=filter_value: self.apply_eligibility_filter(val))
             controls.addWidget(btn)
+
+        risk_label = QLabel("Risk: ")
+        risk_label.setStyleSheet("font-weight: bold; color: #120713")
+        controls.addWidget(risk_label)
+
+        for btn, filter_value in risk_filter_configs:
+                    btn.setCheckable(True)
+                    btn.setCursor(Qt.PointingHandCursor)
+                    btn.setStyleSheet(self.button_style())
+                    btn.setObjectName("SecondaryButton")
+                    self.risk_filter_group.addButton(btn)
+                    btn.clicked.connect(lambda _, val=filter_value: self.apply_risk_filter(val))
+                    controls.addWidget(btn)
     
         all.setChecked(True)
         controls.addStretch()
@@ -287,9 +317,6 @@ class PatientsView(QWidget):
         text.setProperty("legend_name", name)
         return row, text
 
-
-
-    
     def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic, this need to be applied to the new list returned by the signal in topbar.py
         self.current_sort = sort_choice
         self.load_patients()
@@ -302,10 +329,15 @@ class PatientsView(QWidget):
         self.current_eligibility_filter = choice
         self.load_patients()
 
+    def apply_risk_filter(self, choice: str | None) -> None:
+            self.current_risk_filter = choice
+            self.load_patients()
+
     def load_patients(self) -> None:
         patients = list_patients(
             sort_by=self.current_sort,
             eligibility_filter=self.current_eligibility_filter,
+            risk_filter=self.current_risk_filter
         )
         if self.current_search_text:
             patients = self.filter_by_search(patients, self.current_search_text)
