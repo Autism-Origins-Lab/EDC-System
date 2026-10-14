@@ -11,6 +11,7 @@ FILTER_NOT_EVALUATED = "Not Evaluated Only"
 
 FILTER_HIGH_RISK = "High Risk Only"
 FILTER_LOW_RISK = "Low Risk Only"
+FILTER_NOT_EVALUATED_RISK = "Risk Not Evaluated Only"
 
 ELIGIBILITY_FILTERS = {
     "Yes Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'yes'",
@@ -18,9 +19,10 @@ ELIGIBILITY_FILTERS = {
     "Not Evaluated Only": "eligibility = 'Not evaluated'",
 }
 
-RISK_FILTERS = { #need to find out how to read boolean values 
+RISK_FILTERS = {
     "High Risk Only": "risk = 1", #true
     "Low Risk Only": "risk = 0", #false
+    "Risk Not Evaluated Only": "risk IS NULL",
 }
 
 SORT_OPTIONS = {
@@ -32,10 +34,14 @@ SORT_OPTIONS = {
 }
 
 
-def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None = None,) -> list[dict]:
+def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None = None, risk_filter: str | None = None) -> list[dict]:
     order_by = SORT_OPTIONS.get(sort_by, SORT_OPTIONS["Newest First"])
-    where = ELIGIBILITY_FILTERS.get(eligibility_filter) if eligibility_filter else None
 
+    conditions = []
+    if eligibility_filter:
+        conditions.append(ELIGIBILITY_FILTERS[eligibility_filter])
+    if risk_filter:
+        conditions.append(RISK_FILTERS[risk_filter])
     query = """
         SELECT * FROM (
             SELECT
@@ -53,8 +59,8 @@ def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None 
             LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
         )
     """
-    if where:
-        query += f" WHERE {where}"
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
     query += f" ORDER BY {order_by}"
 
     with get_connection() as conn:
