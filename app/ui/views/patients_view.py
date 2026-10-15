@@ -194,13 +194,13 @@ class PatientsView(QWidget):
         controls.addWidget(eligibility_label)
 
         self.eligibility_filter_group = QButtonGroup(self)
-        self.eligibility_filter_group.setExclusive(True)
+        self.eligibility_filter_group.setExclusive(False)
         yes = QPushButton("Eligible")
         no = QPushButton("Ineligible")
         not_eval = QPushButton("Not Evaluated")
 
         self.risk_filter_group = QButtonGroup(self)
-        self.risk_filter_group.setExclusive(True)
+        self.risk_filter_group.setExclusive(False)
         high = QPushButton("High Risk")
         low = QPushButton("Low Risk")
         noRisk = QPushButton("Unknown Risk")
@@ -223,7 +223,7 @@ class PatientsView(QWidget):
             btn.setStyleSheet(self.button_style())
             btn.setObjectName("SecondaryButton")
             self.eligibility_filter_group.addButton(btn)
-            btn.clicked.connect(lambda _, val=filter_value: self.apply_eligibility_filter(val))
+            btn.clicked.connect(lambda checked, b=btn, val=filter_value: self.apply_eligibility_filter(b, val, checked))
             controls.addWidget(btn)
 
         risk_label = QLabel("Risk: ")
@@ -236,7 +236,7 @@ class PatientsView(QWidget):
                     btn.setStyleSheet(self.button_style())
                     btn.setObjectName("SecondaryButton")
                     self.risk_filter_group.addButton(btn)
-                    btn.clicked.connect(lambda _, val=filter_value: self.apply_risk_filter(val))
+                    btn.clicked.connect(lambda checked, b=btn, val=filter_value: self.apply_risk_filter(b, val, checked))
                     controls.addWidget(btn)
     
         controls.addStretch()
@@ -333,25 +333,31 @@ class PatientsView(QWidget):
         self.current_search_text = search_text
         self.load_patients()
 
-    def apply_eligibility_filter(self, choice: str | None) -> None:
-        self.current_eligibility_filter = choice
+    def toggle_in_group(slef, group: QButtonGroup, clicked_btn: QPushButton, checked: bool) -> bool:
+        if checked:
+            for b in group.buttons():
+                if b is not clicked_btn:
+                    b.setChecked(False)
+        return checked
+
+    def apply_eligibility_filter(self, btn, choice: str | None, checked: bool) -> None:
+        active = self.toggle_in_group(self.eligibility_filter_group, btn, checked)
+        self.current_eligibility_filter = choice if active else None
         self.load_patients()
 
     def clear_filters(self) -> None:
         self.current_eligibility_filter = None
         self.current_risk_filter = None
         for group in (self.eligibility_filter_group, self.risk_filter_group):
-            checked = group.checkedButton()
-            if checked:
-                group.setExclusive(False) 
-                checked.setChecked(False)
-            group.setExclusive(True)
+            for b in group.buttons():
+                b.setChecked(False)
         self.load_patients()
 
 
-    def apply_risk_filter(self, choice: str | None) -> None:
-            self.current_risk_filter = choice
-            self.load_patients()
+    def apply_risk_filter(self, btn, choice: str | None, checked: bool) -> None:
+           active = self.toggle_in_group(self.risk_filter_group, btn, checked)
+           self.current_eligibility_filter = choice if active else None
+           self.load_patients()
 
     def load_patients(self) -> None:
         patients = list_patients(
