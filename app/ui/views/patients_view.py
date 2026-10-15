@@ -180,13 +180,21 @@ class PatientsView(QWidget):
         self.sort_button.setMenu(sort_menu)
         controls.addWidget(self.sort_button)
 
+        all_btn = QPushButton("All")
+        all_btn.setCursor(Qt.PointingHandCursor)
+        all_btn.setObjectName("SecondaryButton")
+        all_btn.setStyleSheet(self.button_style())
+        all_btn.clicked.connect(self.clear_filters)
+        controls.addWidget(all_btn)
+        self.all_btn = all_btn
+                    
+             
         eligibility_label = QLabel("Status: ")
         eligibility_label.setStyleSheet("font-weight: bold; color: #120713")
         controls.addWidget(eligibility_label)
 
         self.eligibility_filter_group = QButtonGroup(self)
         self.eligibility_filter_group.setExclusive(True)
-        all = QPushButton("All")
         yes = QPushButton("Eligible")
         no = QPushButton("Ineligible")
         not_eval = QPushButton("Not Evaluated")
@@ -204,13 +212,10 @@ class PatientsView(QWidget):
         ]
 
         eligibility_filter_configs = [
-            (all, None),
             (yes, FILTER_YES),
             (no, FILTER_NO),
             (not_eval, FILTER_NOT_EVALUATED)
         ]
-        self.all = all
-
 
         for btn, filter_value in eligibility_filter_configs:
             btn.setCheckable(True)
@@ -234,7 +239,6 @@ class PatientsView(QWidget):
                     btn.clicked.connect(lambda _, val=filter_value: self.apply_risk_filter(val))
                     controls.addWidget(btn)
     
-        all.setChecked(True)
         controls.addStretch()
         export_csv_button = QPushButton("Export CSV")
         export_csv_button.setObjectName("SecondaryButton")
@@ -332,6 +336,18 @@ class PatientsView(QWidget):
     def apply_eligibility_filter(self, choice: str | None) -> None:
         self.current_eligibility_filter = choice
         self.load_patients()
+
+    def clear_filters(self) -> None:
+        self.current_eligibility_filter = None
+        self.current_risk_filter = None
+        for group in (self.eligibility_filter_group, self.risk_filter_group):
+            checked = group.checkedButton()
+            if checked:
+                group.setExclusive(False) 
+                checked.setChecked(False)
+            group.setExclusive(True)
+        self.load_patients()
+
 
     def apply_risk_filter(self, choice: str | None) -> None:
             self.current_risk_filter = choice
