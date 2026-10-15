@@ -295,6 +295,10 @@ class PatientsView(QWidget):
                 QPushButton:pressed {
                     background-color: #F1F5F9;
                 }
+                QPushButton:checked {
+                    background-color: #B4B4B8;
+                    border: 1px solid #848487;
+                }
                 """
 
     def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
@@ -343,7 +347,7 @@ class PatientsView(QWidget):
             patients = self.filter_by_search(patients, self.current_search_text)
         self.update_table(patients)
 
-        print("filter:", self.current_eligibility_filter, "| sort:", self.current_sort) #debugging
+        print("filters:", self.current_eligibility_filter, " ", self.current_risk_filter, "| sort:", self.current_sort) #debugging
 
 
     @staticmethod
