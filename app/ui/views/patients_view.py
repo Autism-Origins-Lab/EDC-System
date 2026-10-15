@@ -186,9 +186,7 @@ class PatientsView(QWidget):
         all_btn.setStyleSheet(self.button_style())
         all_btn.clicked.connect(self.clear_filters)
         controls.addWidget(all_btn)
-        self.all_btn = all_btn
-                    
-             
+        self.all_btn = all_btn   
         eligibility_label = QLabel("Status: ")
         eligibility_label.setStyleSheet("font-weight: bold; color: #120713")
         controls.addWidget(eligibility_label)
@@ -333,7 +331,7 @@ class PatientsView(QWidget):
         self.current_search_text = search_text
         self.load_patients()
 
-    def toggle_in_group(slef, group: QButtonGroup, clicked_btn: QPushButton, checked: bool) -> bool:
+    def toggle_in_group(self, group: QButtonGroup, clicked_btn: QPushButton, checked: bool) -> bool:
         if checked:
             for b in group.buttons():
                 if b is not clicked_btn:
@@ -356,7 +354,7 @@ class PatientsView(QWidget):
 
     def apply_risk_filter(self, btn, choice: str | None, checked: bool) -> None:
            active = self.toggle_in_group(self.risk_filter_group, btn, checked)
-           self.current_eligibility_filter = choice if active else None
+           self.current_risk_filter = choice if active else None
            self.load_patients()
 
     def load_patients(self) -> None:
