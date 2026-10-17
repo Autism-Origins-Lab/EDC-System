@@ -5,6 +5,7 @@ PySide6==6.11.2
 pandas==3.0.5
 numpy==2.5.2
 openpyxl==3.1.5
+pypdf
 
 # Testing / dev
 pytest==9.1.1

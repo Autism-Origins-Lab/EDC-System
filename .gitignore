@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.ruff_cache
 
 # Virtual environments
 .venv/
@@ -14,8 +13,10 @@ build/
 dist/
 *.egg-info/
 
-# Test and lint caches
+# Test, lint, and temporary tool output
 .pytest_cache/
+.test-tmp/
+.tmp/
 .ruff_cache/
 .coverage
 htmlcov/
@@ -32,6 +33,7 @@ data/*.sqlite3
 data/*.db-journal
 data/*.db-wal
 data/*.db-shm
+data/preferences.json
 data/backups/
 data/exports/
 

@@ -1,5 +1,6 @@
-from PySide6.QtCore import Qt, QEasingCurve, QPropertyAnimation
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -9,28 +10,34 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.database.queries.patients import list_patients
-from app.ui.sidebar import Sidebar
-from app.ui.topbar import TopBar
-from app.ui.views.patients_view import PatientsView
-from app.ui.views.settings_view import SettingsView
+from app.services.preferences import load_preferences
+from app.ui.components.sidebar import Sidebar
+from app.ui.components.topbar import TopBar
+from app.ui.pages.patients_view import PatientsView
+from app.ui.pages.settings_view import SettingsView
+from app.ui.theme import application_stylesheet
+
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(self, preferences: dict | None = None) -> None:
         super().__init__()
-        self.setWindowTitle("Autism Origins Lab Databse")
+        self.preferences = preferences or load_preferences()
+        self.setWindowTitle("Autism Origins Lab Database")
         self.resize(1280, 760)
 
         root = QWidget()
+        root.setObjectName("ApplicationRoot")
         root_layout = QVBoxLayout(root)
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
         self.topbar = TopBar()
         self.sidebar = Sidebar()
-        self.patients_view = PatientsView()
+        self.patients_view = PatientsView(self.preferences)
+        self.settings_view = SettingsView(self.preferences)
 
         body = QFrame()
+        body.setObjectName("ApplicationBody")
         body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(0)
@@ -41,15 +48,13 @@ class MainWindow(QMainWindow):
         self.sidebar_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
         self.sidebar.section_selected.connect(self.show_section)
 
-        #Mouse changes on hover for each placeholder page, to make it look clickable.
         for placeholder_page in self.sidebar.findChildren(QWidget):
             placeholder_page.setCursor(Qt.PointingHandCursor)
-
-        
+ 
         self.topbar.search_changed.connect(self.patients_view.set_search_text)
-        #top bar --> search text --> send patients_view
 
         self.pages = QStackedWidget()
+        self.pages.setObjectName("ApplicationPages")
         self.section_indexes = {
             "Patients": self.pages.addWidget(self.patients_view),
             "Imports": self.pages.addWidget(
@@ -65,7 +70,7 @@ class MainWindow(QMainWindow):
                 )
             ),
             "Settings": self.pages.addWidget(
-                SettingsView()
+                self.settings_view
             ),
             
         }
@@ -74,14 +79,17 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self.pages, 1)
 
         self.topbar.menu_clicked.connect(self.toggle_sidebar)
+        self.settings_view.preferences_saved.connect(self.apply_preferences)
 
         root_layout.addWidget(self.topbar)
         root_layout.addWidget(body, 1)
         self.setCentralWidget(root)
 
+        self.sidebar.select_section(self.preferences["startup_page"])
+
     def toggle_sidebar(self) -> None:
         collapsed_width = 0
-        expanded_width = 220
+        expanded_width = 280
 
         self.sidebar_animation.stop()
         self.sidebar_animation.setStartValue(self.sidebar.width())
@@ -98,12 +106,20 @@ class MainWindow(QMainWindow):
     def show_section(self, section: str) -> None:
         self.pages.setCurrentIndex(self.section_indexes[section])
 
+    def apply_preferences(self, preferences: dict) -> None:
+        self.preferences = preferences.copy()
+        application = QApplication.instance()
+        if application is not None:
+            application.setStyleSheet(application_stylesheet(preferences["theme"]))
+        self.settings_view.apply_preferences(preferences)
+        self.patients_view.apply_preferences(preferences)
+
     def _build_placeholder_page(self, title: str, message: str) -> QWidget:
         page = QWidget()
+        page.setObjectName("PlaceholderPage")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 28, 28, 18)
         layout.setSpacing(8)
-        #labels are inline this way, no need to use local variable declarations
         layout.addWidget(QLabel(title, objectName="PageTitle"))
 
         body = QLabel(message, objectName="Muted")
