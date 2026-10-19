@@ -10,15 +10,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-<<<<<<< HEAD
-from app.database.queries.patients import list_patients
-from app.ui.sidebar import Sidebar
-from app.ui.topbar import TopBar
-from app.ui.views.patients_view import PatientsView
-from app.ui.views.summary_view import PatientExportView
-from app.ui.views.appointment_view import appointmentView
-from app.ui.views.settings_view import SettingsView
-=======
 from app.services.preferences import load_preferences
 from app.ui.components.sidebar import Sidebar
 from app.ui.components.topbar import TopBar
@@ -26,7 +17,6 @@ from app.ui.pages.patients_view import PatientsView
 from app.ui.pages.settings_view import SettingsView
 from app.ui.theme import application_stylesheet
 
->>>>>>> refs/rewritten/main-2
 
 # Export patient data to excel sheet or a patient summary 
 # An overview window total number of participants, how many are elgible, 
