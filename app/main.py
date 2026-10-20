@@ -2,18 +2,20 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from app.database.migration import run_migrations
+from app.database.migrations.runner import run_migrations
+from app.services.preferences import load_preferences
 from app.ui.main_window import MainWindow
-from app.ui.theme import APP_STYLESHEET
+from app.ui.theme import application_stylesheet
 
 
 def main() -> int:
     run_migrations()
 
     application = QApplication(sys.argv)
-    application.setStyleSheet(APP_STYLESHEET)
+    preferences = load_preferences()
+    application.setStyleSheet(application_stylesheet(preferences["theme"]))
 
-    window = MainWindow()
+    window = MainWindow(preferences)
     window.show()
 
     return application.exec()
