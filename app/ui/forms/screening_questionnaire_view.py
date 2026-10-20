@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QFormLayout,
     QLineEdit,
@@ -16,13 +15,14 @@ from app.database.repositories.forms import (
     save_screening_questionnaire,
 )
 from app.services.preferences import format_date, load_preferences, parse_date
+from app.ui.components.yes_no_input import YesNoInput
 
 
 class ScreeningQuestionnaireView(QWidget):
-    def __init__(self, patient_id: int):
+    def __init__(self, patient_id: int, preferences: dict | None = None):
         super().__init__()
         self.patient_id = patient_id
-        self.date_format = load_preferences()["date_format"]
+        self.date_format = (preferences or load_preferences())["date_format"]
 
         outer_layout = QVBoxLayout(self)
         scroll_area = QScrollArea()
@@ -55,11 +55,11 @@ class ScreeningQuestionnaireView(QWidget):
         self.father_name_input = QLineEdit()
         self.mother_age_input = QLineEdit()
         self.father_age_input = QLineEdit()
-        self.biological_mother_checkbox = QCheckBox("Mother listed is biological mother")
+        self.biological_mother_input = YesNoInput("Mother listed is biological mother")
         self.biological_mother_name_input = QLineEdit()
-        self.biological_father_checkbox = QCheckBox("Father listed is biological father")
+        self.biological_father_input = YesNoInput("Father listed is biological father")
         self.biological_father_name_input = QLineEdit()
-        self.research_participation_checkbox = QCheckBox("Family has participated in research")
+        self.research_participation_input = YesNoInput("Family has participated in research")
         self.research_study_input = QLineEdit()
         self.research_study_when_input = QLineEdit()
         self.research_study_where_input = QLineEdit()
@@ -83,11 +83,11 @@ class ScreeningQuestionnaireView(QWidget):
         form.addRow("Father Name", self.father_name_input)
         form.addRow("Mother Age", self.mother_age_input)
         form.addRow("Father Age", self.father_age_input)
-        form.addRow("", self.biological_mother_checkbox)
+        self.biological_mother_input.add_to_form(form)
         form.addRow("Biological Mother Name", self.biological_mother_name_input)
-        form.addRow("", self.biological_father_checkbox)
+        self.biological_father_input.add_to_form(form)
         form.addRow("Biological Father Name", self.biological_father_name_input)
-        form.addRow("", self.research_participation_checkbox)
+        self.research_participation_input.add_to_form(form)
         form.addRow("Research Study", self.research_study_input)
         form.addRow("When", self.research_study_when_input)
         form.addRow("Where", self.research_study_where_input)
@@ -134,11 +134,11 @@ class ScreeningQuestionnaireView(QWidget):
         self.father_name_input.setText(data.get("father_name") or "")
         self.mother_age_input.setText(data.get("mother_age") or "")
         self.father_age_input.setText(data.get("father_age") or "")
-        self.biological_mother_checkbox.setChecked(bool(data.get("biological_mother")))
+        self.biological_mother_input.set_value(data.get("biological_mother"))
         self.biological_mother_name_input.setText(data.get("biological_mother_name") or "")
-        self.biological_father_checkbox.setChecked(bool(data.get("biological_father")))
+        self.biological_father_input.set_value(data.get("biological_father"))
         self.biological_father_name_input.setText(data.get("biological_father_name") or "")
-        self.research_participation_checkbox.setChecked(bool(data.get("research_participation")))
+        self.research_participation_input.set_value(data.get("research_participation"))
         self.research_study_input.setText(data.get("research_study") or "")
         self.research_study_when_input.setText(data.get("research_study_when") or "")
         self.research_study_where_input.setText(data.get("research_study_where") or "")
@@ -164,17 +164,17 @@ class ScreeningQuestionnaireView(QWidget):
             "father_name": self.father_name_input.text().strip(),
             "mother_age": self.mother_age_input.text().strip(),
             "father_age": self.father_age_input.text().strip(),
-            "biological_mother": int(self.biological_mother_checkbox.isChecked()),
+            "biological_mother": self.biological_mother_input.value(),
             "biological_mother_name": self.biological_mother_name_input.text().strip(),
-            "biological_father": int(self.biological_father_checkbox.isChecked()),
+            "biological_father": self.biological_father_input.value(),
             "biological_father_name": self.biological_father_name_input.text().strip(),
-            "research_participation": int(self.research_participation_checkbox.isChecked()),
+            "research_participation": self.research_participation_input.value(),
             "research_study": self.research_study_input.text().strip(),
             "research_study_when": self.research_study_when_input.text().strip(),
             "research_study_where": self.research_study_where_input.text().strip(),
         }
 
-    def save(self) -> bool:
+    def save(self, *, show_confirmation=True) -> bool:
         data = self.collect_data()
         try:
             data["date_of_birth"] = parse_date(
@@ -188,5 +188,6 @@ class ScreeningQuestionnaireView(QWidget):
             )
             return False
         save_screening_questionnaire(self.patient_id, data)
-        QMessageBox.information(self, "Saved", "Screening questionnaire saved successfully.")
+        if show_confirmation:
+            QMessageBox.information(self, "Saved", "Screening questionnaire saved successfully.")
         return True

@@ -14,10 +14,10 @@ from app.services.preferences import format_date, load_preferences, parse_date
 
 
 class PatientOverviewView(QWidget):
-    def __init__(self, patient_id: int):
+    def __init__(self, patient_id: int, preferences: dict | None = None):
         super().__init__()
         self.patient_id = patient_id
-        self.date_format = load_preferences()["date_format"]
+        self.date_format = (preferences or load_preferences())["date_format"]
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(20)
@@ -95,7 +95,7 @@ class PatientOverviewView(QWidget):
             ),
         }
 
-    def save(self) -> bool:
+    def save(self, *, show_confirmation=True) -> bool:
         data = self.collect_data()
         birthday = data["date_of_birth"]
         if birthday:

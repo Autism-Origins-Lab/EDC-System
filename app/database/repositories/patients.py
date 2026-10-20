@@ -1,4 +1,5 @@
 import sqlite3
+
 import pandas as pd
 
 from app.database.connection import get_connection
@@ -150,7 +151,11 @@ def _update_patient(connection: sqlite3.Connection, patient_id: int, data: dict)
                 high_familial_risk = excluded.high_familial_risk,
                 low_familial_risk = excluded.low_familial_risk,
                 updated_at = CURRENT_TIMESTAMP
-        """, (patient_id, int(risk == 1), int(risk == 0)))
+        """, (
+            patient_id,
+            None if risk is None else int(risk == 1),
+            None if risk is None else int(risk == 0),
+        ))
 
 
 def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dict]:
@@ -190,6 +195,26 @@ def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dic
         ).fetchall()
 
     return [dict(row) for row in rows]
+
+def complete_patient_form(patient_id: int, screener: str) -> None:
+    """Record the required screener and final status together, regardless of eligibility."""
+    if not isinstance(screener, str) or not screener.strip():
+        raise ValueError("Screener name is required before completing the form.")
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "UPDATE patients SET form_status = 'Complete', updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = ?",
+            (patient_id,),
+        )
+        if not cursor.rowcount:
+            raise ValueError("Patient does not exist.")
+        connection.execute(
+            "INSERT INTO telephone_screenings (patient_id, screener) VALUES (?, ?) "
+            "ON CONFLICT(patient_id) DO UPDATE SET screener = excluded.screener, "
+            "updated_at = CURRENT_TIMESTAMP",
+            (patient_id, screener.strip()),
+        )
+
 
 def update_patient_form(patient_id: int, status: str) -> None: #database method that marks form as complete --> ready export
   #primary column is id. Direct update w cursor.rowcount --> check existence better

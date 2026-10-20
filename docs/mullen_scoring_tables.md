@@ -53,7 +53,7 @@ and are not copied into the repository.
 ## UI integration
 
 Run `python -m app.main`, open a participant, save their date of birth in
-Overview, and select Mullen assessment. Enter the assessment date using the
+Overview, and advance to Mullen assessment with Save and Continue. Enter the assessment date using the
 displayed date format, select 90% or 95% confidence, and choose the handbook's
 age convention. Raw-score edits automatically update the four C1/C2 fields.
 Invalid inputs clear calculated results and show an explanation; saving is
@@ -64,3 +64,8 @@ and age convention. These are saved atomically with scores. Existing records
 retain their scores without invented context. If Overview DOB later changes,
 the assessment retains its saved DOB until the user selects Use Overview DOB.
 Age equivalents remain available for separate manual entry.
+
+In the guided workspace, an entirely blank Mullen section can be continued past
+without creating assessment scores; its empty answers appear as N/A on the final
+review. Once assessment options or scores are entered, normal scoring validation
+applies before Save and Continue advances to the next section.

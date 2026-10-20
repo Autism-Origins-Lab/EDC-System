@@ -69,7 +69,9 @@ class VideoReferencesView(QWidget):
             self.table.setItem(row, 0, QTableWidgetItem(video.get("title") or ""))
             self.table.setItem(row, 1, QTableWidgetItem(video.get("file_path") or ""))
 
-    def save(self) -> bool:
+    def save(self, *, show_confirmation=True) -> bool:
+        if not self.title_input.text().strip() and not self.file_path_input.text().strip():
+            return True
         create_patient_video(
             self.patient_id,
             {

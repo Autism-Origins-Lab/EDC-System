@@ -105,6 +105,25 @@ FORM_FIELDS = {
     "mullen_assessments": MULLEN_FIELDS,
 }
 
+OPTIONAL_BOOLEAN_FIELDS = {
+    "telephone_screenings": {
+        "high_familial_risk", "low_familial_risk", "verbal_consent",
+    },
+    "screening_questionnaires": {
+        "biological_mother", "biological_father", "research_participation",
+    },
+    "medical_histories": {
+        "seen_neurologist", "head_injury", "genetic_abnormalities",
+        "seizure_epileptic_attack", "pregnancy_complications",
+    },
+    "family_medical_histories": {
+        "family_psychiatric", "parent_autism", "parent_schizophrenia",
+        "parent_learning_disability", "parent_substance_abuse", "has_siblings",
+        "sibling_autism", "sibling_adhd", "same_father_as_older_sibling",
+        "same_mother_as_older_sibling",
+    },
+}
+
 
 def _filter_fields(table_name: str, data: dict) -> dict:
     allowed_fields = FORM_FIELDS[table_name]
@@ -113,6 +132,14 @@ def _filter_fields(table_name: str, data: dict) -> dict:
 # Universal Save Function --> Database
 def _save_one_to_one_form(table_name: str, patient_id: int, data: dict) -> None:
     fields = _filter_fields(table_name, data)
+    for field in OPTIONAL_BOOLEAN_FIELDS.get(table_name, set()) & fields.keys():
+        value = fields[field]
+        if value is not None:
+            if type(value) not in (int, bool) or value not in (0, 1):
+                raise ValueError(
+                    f"{field.replace('_', ' ').capitalize()} must be Yes, No, or unanswered."
+                )
+            fields[field] = int(value)
 
     columns = ["patient_id", *fields.keys()]
     placeholders = ", ".join("?" for _ in columns)
