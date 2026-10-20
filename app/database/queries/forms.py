@@ -94,6 +94,14 @@ FORM_FIELDS = {
         "sibling_adhd",
         "same_father_as_older_sibling",
         "same_mother_as_older_sibling",
+        "sibling_autism_full",
+        "sibling_autism_half",
+        "sibling_autism_adopted",
+        "sibling_autism_multiple",
+        "sibling_adhd_full",
+        "sibling_adhd_half",
+        "sibling_adhd_adopted",
+        "sibling_adhd_multiple",
     },
     "mullen_assessments": MULLEN_FIELDS,
 }
@@ -300,6 +308,95 @@ def save_family_medical_history(patient_id: int, data: dict) -> None:
 
 def get_family_medical_history(patient_id: int) -> dict | None:
     return _get_one_to_one_form("family_medical_histories", patient_id)
+
+SIBLING_FIELDS = (
+    "name",
+    "age",
+    "same_bio_father",
+    "same_bio_mother",
+    "adopted",
+    "diagnosis",
+)
+
+def save_siblings(patient_id: int, siblings: list[dict]) -> None:
+    """Replace this patient's siblings with the given list.
+
+    Deleting then inserting is simpler than matching up edited rows, and
+    doing both on one connection means a failure leaves the old rows in place.
+    """
+    columns = ", ".join(SIBLING_FIELDS)
+    placeholders = ", ".join("?" for _ in SIBLING_FIELDS)
+
+    with get_connection() as connection:
+        connection.execute("DELETE FROM siblings WHERE patient_id = ?", (patient_id,))
+        for sibling in siblings:
+            connection.execute(
+                f"INSERT INTO siblings (patient_id, {columns}) VALUES (?, {placeholders})",
+                [patient_id, *(sibling.get(field) for field in SIBLING_FIELDS)],
+            )
+
+def list_siblings(patient_id: int) -> list[dict]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            f"SELECT {', '.join(SIBLING_FIELDS)} FROM siblings WHERE patient_id = ? ORDER BY id",
+            (patient_id,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+HIGH_RISK = 1
+LOW_RISK = 0
+
+def familial_risk(answers: dict, siblings: list[dict]) -> tuple[int | None, str]:
+    """Suggest the baby's familial risk from the Family Medical History answers.
+
+    Returns (risk, reason), where risk is HIGH_RISK (1), LOW_RISK (0), or None.
+
+    The lab's rule:
+    - High: an older sibling has been diagnosed with ASD (question 4 is Yes).
+      Other relatives (cousins, aunts...) don't count.
+    - Low: no diagnosis anywhere in the family. Question 1 (psychiatric diagnosis
+      in parents or full siblings) is No, no sibling has ASD or ADHD, and no row
+      in the siblings table lists a diagnosis. Having siblings isn't required.
+    - None: not enough answers yet, or the family fits neither rule.
+
+    This is only a suggestion. The RA still sets risk on the Telephone Screening tab.
+    """
+    has_siblings = answers.get("has_siblings")
+    if has_siblings == 1 and answers.get("sibling_autism") == 1:
+        return HIGH_RISK, "A sibling has been diagnosed with ASD."
+
+    needed = [answers.get("family_psychiatric"), has_siblings]
+    if has_siblings == 1:
+        needed += [answers.get("sibling_autism"), answers.get("sibling_adhd")]
+    if None in needed:
+        return None, "Answer questions 1 and 3 (and 4 and 5 if there are siblings) to see a suggestion."
+
+    has_any_diagnosis = (
+        answers.get("family_psychiatric") == 1
+        or answers.get("sibling_adhd") == 1
+        or any(sibling.get("diagnosis") for sibling in siblings)
+    )
+    if has_any_diagnosis:
+        return None, (
+            "Neither high nor low: a family member has a diagnosis other than a "
+            "sibling with ASD. Check with the coordinator."
+        )
+    return LOW_RISK, "No one in the family has a diagnosis."
+
+def sibling_relation(same_father: int | None, same_mother: int | None) -> str:
+    """Work out a sibling's relationship from the two "same parent" answers.
+
+    Each answer is 1 (Yes), 0 (No), or None (unknown). The result is worked out
+    when needed rather than stored, so it can never disagree with the answers.
+    """
+    if same_father is None or same_mother is None:
+        return "Unknown"
+    if same_father == 1 and same_mother == 1:
+        return "Full"
+    if same_father == 1 or same_mother == 1:
+        return "Half"
+    return "Not biological"
 
 
 def save_procedure_schedule(patient_id: int,procedure_name: str,data: dict) -> None:

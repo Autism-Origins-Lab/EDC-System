@@ -114,6 +114,8 @@ def update_patient(patient_id: int, data: dict) -> None:
             """,
             values,
         )
+    connection.commit()   
+
 
 def search_patients(search_text: str, sort_by: str = "Newest First") -> list[dict]:
     cleaned_search = search_text.strip().lower()

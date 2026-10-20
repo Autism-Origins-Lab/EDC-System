@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS patients (
     date_of_birth TEXT,
     sex TEXT,
     race TEXT,
+    risk BOOLEAN,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,7 +33,8 @@ CREATE TABLE IF NOT EXISTS telephone_screenings (
     screener TEXT,
     eligibility TEXT,
     eligibility_comment TEXT,
-    atRisk BOOLEAN,
+    high_familial_risk INTEGER,
+    low_familial_risk INTEGER,
     schedule_date TEXT,
     birthweight TEXT,
     gestational TEXT,
@@ -113,8 +115,30 @@ CREATE TABLE IF NOT EXISTS family_medical_histories (
     sibling_adhd INTEGER,
     same_father_as_older_sibling INTEGER,
     same_mother_as_older_sibling INTEGER,
+    sibling_autism_full INTEGER,
+    sibling_autism_half INTEGER,
+    sibling_autism_adopted INTEGER,
+    sibling_autism_multiple INTEGER,
+    sibling_adhd_full INTEGER,
+    sibling_adhd_half INTEGER,
+    sibling_adhd_adopted INTEGER,
+    sibling_adhd_multiple INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+);
+
+-- One row per sibling. Age is TEXT so RAs can write "18 months".
+CREATE TABLE IF NOT EXISTS siblings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    name TEXT,
+    age TEXT,
+    same_bio_father INTEGER,
+    same_bio_mother INTEGER,
+    adopted INTEGER,
+    diagnosis TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
 

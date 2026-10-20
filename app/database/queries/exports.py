@@ -10,6 +10,7 @@ EXPORT_SHEETS = {
     "Screening Questionnaire": "screening_questionnaires",
     "Medical History": "medical_histories",
     "Family Medical History": "family_medical_histories",
+    "Siblings": "siblings",
     "Procedure Schedule": "procedure_schedules",
 }
 
