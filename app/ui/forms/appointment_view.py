@@ -1,27 +1,14 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QPushButton, QFileDialog, QMessageBox, QAbstractItemView
+    QPushButton, QFileDialog, QMessageBox, QAbstractItemView, QTableWidget, QTableWidgetItem, QHeaderView
 )
 import os
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 from PySide6.QtGui import QFont
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtCore import QSize
 from datetime import datetime
-from app.database.queries.patients import list_patients
-
-
-DATE_FMT = ["%m/%d/%y", "%m/%d/%Y", "%Y-%m-%d"]  # Adjust this format based on your actual date format in the database
-
-def parse_date(value):
-    value = value.strip()
-    for fmt in DATE_FMT:
-        try:
-            return datetime.strptime(value, fmt)
-        except ValueError:
-            continue
-    return None
+from app.database.repositories.patients import list_patients
+from app.services.slack_reminders import REMINDER_MESSAGES, parse_date  # Slack reminders are sent by scripts/send_slack_reminders.py
 
 class appointmentView(QWidget):
     def __init__(self) -> None:
@@ -40,39 +27,23 @@ class appointmentView(QWidget):
         self.main_layout.addSpacing(5)
         self.main_layout.addWidget(sub_title_label)
 
-        self.appointment_list_widget = QListWidget()
-        self.appointment_list_widget.setFrameShape(QListWidget.NoFrame)
-        self.appointment_list_widget.setStyleSheet("""
-            QListWidget {
-                border: none;
-                background: transparent;
-            }
-            QListWidget::item {
-                border: 1px solid black;
-                border-radius: 8px;
-                padding: 10px;
-                margin: 4px 0px;
-                background: white;
-                color: #1f2937;
-            }
-            QListWidget::item:hover {
-                background: #e5e7eb;
-            }
-            QListWidget::item:selected {
-                background: #dbeafe;
-                border: 1px solid black;
-                color: #1f2937;
-            }
-        """)
-        self.appointment_list_widget.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.appointment_list_widget.viewport().installEventFilter(self)
-        self.main_layout.addWidget(self.appointment_list_widget)
-        self.refresh_appointment_list()
-
+        self.appointment_table_list = QTableWidget()
+        self.appointment_table_list.setColumnCount(7)
+        self.appointment_table_list.setHorizontalHeaderLabels(
+            ["Subject ID", "Patient Name", "Schedule Date", "Birth Date", "Familial Risk", "Sex","Reminders Sent"]
+        )
+        self.appointment_table_list.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.appointment_table_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.appointment_table_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.appointment_table_list.verticalHeader().setVisible(False)
+        self.appointment_table_list.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.appointment_table_list.setFont(QFont("Helvetica Neue", 15))
+        self.appointment_table_list.viewport().installEventFilter(self)
+        self.main_layout.addWidget(self.appointment_table_list, 1)
+        if 
     def refresh_appointment_list(self):
-        global date_str
         now = datetime.now()
-    
+
         appointments = []
         for patient in list_patients():
             date_str = patient["schedule_date"]
@@ -89,65 +60,68 @@ class appointmentView(QWidget):
         while swapped:
             swapped = False
             for i in range(len(appointments) - 1):
-                global days_a, days_b
-                days_a = (appointments[i][0].date() - now.date()).days
-                days_b = (appointments[i + 1][0].date() - now.date()).days
-                if days_a > days_b:
+                if appointments[i][0] > appointments[i + 1][0]:
                     appointments[i], appointments[i + 1] = appointments[i + 1], appointments[i]
                     swapped = True
 
-        date_str = appointments[0][0].strftime("%Y-%m-%d") if appointments else None
         self.patients = [patient for _, patient in appointments]
 
-        for scheduled, patient in appointments:
-            text = f"{scheduled:%a %b %d, %Y}  —  {patient['subject_id']}"
-            print(text)
-            item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, patient["subject_id"])
-            self.appointment_list_widget.addItem(item)
-            self.appointment_list_widget.setSpacing(5)
-            self.appointment_list_widget.setFont(QFont("Helvetica Neue", 15))
+        table = self.appointment_table_list
+        table.setRowCount(len(appointments))
+        for row, (scheduled, patient) in enumerate(appointments):
 
-    def mousePressEvent(self, event):              
+            if patient["high_familial_risk"] == 1:
+                risk = "High Risk"
+            elif patient["low_familial_risk"] == 1:
+                risk = "Low Risk"
+            else:
+                risk = "Not evaluated"
+
+            # The daily job sends a reminder 14, 7 and 1 days before, so count the ones already reached.
+            days_until = (scheduled.date() - now.date()).days
+            reminder_count = sum(1 for days in REMINDER_MESSAGES if days >= days_until)
+            if reminder_count == 1:
+                reminder_count = "First Reminder Sent!"
+            elif reminder_count == 2:
+                reminder_count = "Second Reminder Sent!"
+            elif reminder_count == 3:
+                reminder_count = "Final Reminder Sent!"
+            else:
+                reminder_count = "No Reminders Sent Yet"
+
+            table.setItem(row, 0, QTableWidgetItem(patient["subject_id"]))
+            table.setItem(row, 1, QTableWidgetItem(patient["child_name"] or "Unnamed"))
+            table.setItem(row, 2, QTableWidgetItem(scheduled.strftime("%Y-%m-%d")))
+            table.setItem(row, 3, QTableWidgetItem(patient["date_of_birth"] or "Unknown"))
+            table.setItem(row, 4, QTableWidgetItem(risk))
+            table.setItem(row, 5, QTableWidgetItem(patient["sex"] or "Unknown"))
+            table.setItem(row, 6, QTableWidgetItem(str(reminder_count)))
+
+    def showEvent(self, event):
+        self.refresh_appointment_list()
+        super().showEvent(event)
+
+    def mousePressEvent(self, event):
         self.clear_list_selection()
         super().mousePressEvent(event)
 
     def clear_list_selection(self):
-        self.appointment_list_widget.clearSelection()
-        self.appointment_list_widget.setCurrentRow(-1)
+        self.appointment_table_list.clearSelection()
+        self.appointment_table_list.setCurrentCell(-1, -1)  # Deselect any current cell
 
-    def eventFilter(self, obj, event):            
-        if obj is self.appointment_list_widget.viewport() and event.type() == QEvent.MouseButtonPress:
-            if self.appointment_list_widget.itemAt(event.position().toPoint()) is None:
-                self.clear_list_selection()
+    def eventFilter(self, obj, event):
+        if obj is self.appointment_table_list.viewport() and event.type() == QEvent.MouseButtonPress:
+                if self.appointment_table_list.itemAt(event.position().toPoint()) is None:
+                    self.clear_list_selection()
         return super().eventFilter(obj, event)
 
-    def slack_reminder(self, patient_id):
-        if not slack_token:
-            print("SLACK_BOT_TOKEN is not set. Cannot send Slack message.")
+    def change_schedule_date(self, new_date: str):
+        selected_items = self.appointment_table_list.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "No patient selected", "Please select a patient first.")
             return
 
-        if days_a == 14 and days_b == 14:
-            message = f"Reminder: Patient {patient_id} has an appointment in 14 days."
-        elif days_a == 7 and days_b == 7:
-            message = f"Reminder: Patient {patient_id} has an appointment in 7 days."
-        elif days_a == 1 and days_b == 1:
-            message = f"Reminder: Patient {patient_id} has an appointment tomorrow."
-        else:
-            return
-
-        try:
-            response = client.chat_postMessage(
-                channel="#general",
-                text=message
-            )
-            print(f"Slack message sent: {response['ts']}")
-        except SlackApiError as e:
-            print(f"Error sending Slack message: {e.response['error']}")
-            
-
-    
-
-
-
-
+        selected_row = selected_items[0].row()
+        patient = self.patients[selected_row]
+        patient["schedule_date"] = new_date
+        self.refresh_appointment_list()
