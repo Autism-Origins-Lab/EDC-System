@@ -17,6 +17,9 @@ def main() -> int:
 
     window = MainWindow(preferences)
     window.show()
+    # On small or scaled screens the default size can extend under the taskbar.
+    if not window.screen().availableGeometry().contains(window.frameGeometry()):
+        window.showMaximized()
 
     return application.exec()
 

@@ -1,10 +1,21 @@
+import math
 import sqlite3
+from datetime import date, datetime
+
 import pandas as pd
+from dateutil.relativedelta import relativedelta
 
 from app.database.connection import get_connection
 
 IDENTITY_FIELDS = {"child_name", "date_of_birth", "sex", "race"}
 PATIENT_FIELDS = {"subject_id", *IDENTITY_FIELDS, "form_status", "risk"}
+
+AGE_CUTOFF = 3  # months; a born baby must be younger than this
+GESTATIONAL_AGE_CUTOFF = 37  # weeks; born at or before this is ineligible
+
+AGE_REASON = f"Age is {AGE_CUTOFF} months or older."
+GESTATION_REASON = f"Born at or before {GESTATIONAL_AGE_CUTOFF} weeks gestation."
+AUTOMATIC_REASONS = {AGE_REASON, GESTATION_REASON, f"{AGE_REASON} {GESTATION_REASON}"}
 
 FILTER_YES = "Yes Only"
 FILTER_NO = "No Only"
@@ -12,16 +23,18 @@ FILTER_NOT_EVALUATED = "Not Evaluated Only"
 
 FILTER_HIGH_RISK = "High Risk Only"
 FILTER_LOW_RISK = "Low Risk Only"
+FILTER_NOT_EVALUATED_RISK = "Risk Not Evaluated Only"
 
 ELIGIBILITY_FILTERS = {
     "Yes Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'yes'",
     "No Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'no'",
-    "Not Evaluated Only": "LOWER(TRIM(COALESCE(eligibility, ''))) IN ('not evaluated', '') OR eligibility IS NULL",
+    "Not Evaluated Only": "LOWER(TRIM(COALESCE(eligibility, ''))) = 'not evaluated'",
 }
 
 RISK_FILTERS = {
-    "High Only": "LOWER(TRIM(COALESCE(high_familial_risk, ''))) = 'True'",
-    "Low Only": "LOWER(TRIM(COALESCE(low_familial_risk, ''))) = 'True'",
+    "High Risk Only": "risk = 1", #true
+    "Low Risk Only": "risk = 0", #false
+    "Risk Not Evaluated Only": "risk IS NULL",
 }
 
 SORT_OPTIONS = {
@@ -32,11 +45,111 @@ SORT_OPTIONS = {
     "Newest First": "created_at DESC, id DESC",
 }
 
+def _to_number(value) -> float | None:
+    try:
+        number = float(value)
+    except (ValueError, TypeError):
+        return None
+    return None if math.isnan(number) else number
 
-def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None = None,) -> list[dict]:
+
+def _to_date(value) -> date | None:
+    for date_format in ("%Y-%m-%d", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(value.strip(), date_format).date()
+        except (ValueError, TypeError, AttributeError):
+            continue
+    return None
+
+
+def ineligibility_reason(
+    age: str | None,
+    gest_age: str | None,
+    date_of_birth: str | None,
+    today: date | None = None,
+) -> str | None:
+    """Return why a patient is ineligible, or None if no rule is violated.
+
+    Both rules are checked once the baby is born. Age is measured from the date of
+    birth to today; the typed-in age (months) is the fallback when no date of birth is entered.
+    """
+    today = today or date.today()
+    birthday = _to_date(date_of_birth)
+    months = _to_number(age)
+
+    if birthday is not None:
+        if birthday > today:
+            return None  # not born yet
+        too_old = today >= birthday + relativedelta(months=AGE_CUTOFF)
+    elif months is not None:
+        too_old = months >= AGE_CUTOFF
+    else:
+        return None  # no evidence the baby has been born
+
+    reasons = []
+    if too_old:
+        reasons.append(AGE_REASON)
+    weeks = _to_number(gest_age)
+    if weeks is not None and weeks <= GESTATIONAL_AGE_CUTOFF:
+        reasons.append(GESTATION_REASON)
+    return " ".join(reasons) or None
+
+
+def apply_automatic_eligibility(connection: sqlite3.Connection, patient_id: int) -> None:
+    """Mark the patient ineligible with the reason as the comment when a rule is violated.
+
+    If a rule no longer applies -> "No" goes back to "Not evaluated". Custom eligibility comment takes priority
+    """
+    row = connection.execute(
+        """
+        SELECT p.date_of_birth, sq.age, ts.gestational, ts.eligibility, ts.eligibility_comment
+        FROM patients p
+        LEFT JOIN screening_questionnaires sq ON sq.patient_id = p.id
+        LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
+        WHERE p.id = ?
+        """,
+        (patient_id,),
+    ).fetchone()
+    if row is None:
+        return
+    comment = (row["eligibility_comment"] or "").strip()
+    if row["eligibility"] == "No" and comment and comment not in AUTOMATIC_REASONS:
+        return
+    reason = ineligibility_reason(row["age"], row["gestational"], row["date_of_birth"])
+    if reason is None:
+        if row["eligibility"] == "No" and comment in AUTOMATIC_REASONS:
+            connection.execute(
+                """
+                UPDATE telephone_screenings
+                SET eligibility = 'Not evaluated',
+                    eligibility_comment = '',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE patient_id = ?
+                """,
+                (patient_id,),
+            )
+        return
+    connection.execute(
+        """
+        INSERT INTO telephone_screenings (patient_id, eligibility, eligibility_comment)
+        VALUES (?, 'No', ?)
+        ON CONFLICT(patient_id) DO UPDATE SET
+            eligibility = excluded.eligibility,
+            eligibility_comment = excluded.eligibility_comment,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (patient_id, reason),
+    )
+
+
+def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None = None, risk_filter: str | None = None) -> list[dict]:
     order_by = SORT_OPTIONS.get(sort_by, SORT_OPTIONS["Newest First"])
-    where = ELIGIBILITY_FILTERS.get(eligibility_filter) if eligibility_filter else None
 
+    conditions = []
+    if eligibility_filter:
+        conditions.append(ELIGIBILITY_FILTERS[eligibility_filter])
+    if risk_filter:
+        conditions.append(RISK_FILTERS[risk_filter])
     query = """
         SELECT * FROM (
             SELECT
@@ -46,6 +159,7 @@ def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None 
                 p.form_status,
                 p.created_at,
                 COALESCE(NULLIF(TRIM(ts.eligibility), ''), 'Not evaluated') AS eligibility,
+                p.risk AS risk, 
                 ts.screener,
                 ts.schedule_date,
                 ts.eligibility_comment AS comment
@@ -53,8 +167,8 @@ def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None 
             LEFT JOIN telephone_screenings ts ON ts.patient_id = p.id
         )
     """
-    if where:
-        query += f" WHERE {where}"
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
     query += f" ORDER BY {order_by}"
 
     with get_connection() as conn:
@@ -108,6 +222,9 @@ def delete_patient(patient_id: int) -> None:
 def update_patient(patient_id: int, data: dict) -> None:
     with get_connection() as connection:
         _update_patient(connection, patient_id, data)
+        # The Overview tab saves the date of birth here, so re-check eligibility.
+        if "date_of_birth" in data:
+            apply_automatic_eligibility(connection, patient_id)
 
 
 def _update_patient(connection: sqlite3.Connection, patient_id: int, data: dict) -> None:
@@ -230,7 +347,7 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
                 (eligibility_status, patient_id),
             )
         else:
-            connection.execute( # if there is no record found, create one and set an eligibility. 
+            connection.execute(
                         """
                         INSERT INTO telephone_screenings (patient_id, eligibility)
                         VALUES (?, ?)

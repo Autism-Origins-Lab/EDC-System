@@ -174,6 +174,7 @@ class TelephoneScreeningView(QWidget):
         except ValueError as exc:
             QMessageBox.warning(self, "Unable to save", str(exc))
             return False
+        self.load_existing_data() #immediate load
 
 
         QMessageBox.information(

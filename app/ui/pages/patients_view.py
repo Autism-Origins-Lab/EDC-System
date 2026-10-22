@@ -1,7 +1,8 @@
-from PySide6.QtCore import QRectF, Qt, Signal, Slot
+from PySide6.QtCore import QEvent, QRectF, Qt, Signal, Slot
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QButtonGroup,
     QFileDialog,
     QHBoxLayout,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -20,6 +22,9 @@ from PySide6.QtWidgets import (
 from app.database.repositories.patients import (
     FILTER_NO,
     FILTER_NOT_EVALUATED,
+    FILTER_HIGH_RISK,
+    FILTER_LOW_RISK,
+    FILTER_NOT_EVALUATED_RISK,
     FILTER_YES,
     export_patients_to_csv,
     list_patients,
@@ -39,6 +44,7 @@ from app.ui.theme import (
     PATIENTS_FILTER_BUTTON_STYLESHEET,
     PATIENTS_LEGEND_TEXT_STYLESHEET,
     PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET,
+    PATIENTS_PAGE_SCROLL_STYLESHEET,
     PATIENTS_PENDING_COLOR,
     PATIENTS_READY_COLOR,
     PATIENTS_TABLE_ITEM_COLOR,
@@ -114,10 +120,25 @@ class PatientsView(QWidget):
         self.patients: list[dict] = []
 
         self.current_sort = "Newest First"
+        self.current_risk_filter: str | None = None
         self.current_eligibility_filter: str | None = None
         self.current_search_text = ""
 
-        layout = QVBoxLayout(self)
+        # The whole page scrolls as one; the table grows to fit its rows instead of scrolling itself.
+        page_layout = QVBoxLayout(self)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("PatientsScroll")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setStyleSheet(PATIENTS_PAGE_SCROLL_STYLESHEET)
+        self.scroll_area.viewport().setAutoFillBackground(False)
+        content = QWidget()
+        content.setObjectName("PatientsContent")
+        self.scroll_area.setWidget(content)
+        page_layout.addWidget(self.scroll_area)
+
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(28, 28, 28, 18)
         layout.setSpacing(18)
 
@@ -196,35 +217,63 @@ class PatientsView(QWidget):
         self.sort_button.setMenu(sort_menu)
         controls.addWidget(self.sort_button)
 
+        all_btn = QPushButton("All")
+        all_btn.setCursor(Qt.PointingHandCursor)
+        all_btn.setObjectName("SecondaryButton")
+        all_btn.setStyleSheet(PATIENTS_FILTER_BUTTON_STYLESHEET)
+        all_btn.clicked.connect(self.clear_filters)
+        controls.addWidget(all_btn)
+        self.all_btn = all_btn
         self.eligibility_label = QLabel("Status: ")
         self.eligibility_label.setStyleSheet(PATIENTS_ELIGIBILITY_LABEL_STYLESHEET)
         controls.addWidget(self.eligibility_label)
 
         self.eligibility_filter_group = QButtonGroup(self)
-        self.eligibility_filter_group.setExclusive(True)
-        all = QPushButton("All")
+        self.eligibility_filter_group.setExclusive(False)
         yes = QPushButton("Eligible")
         no = QPushButton("Ineligible")
         not_eval = QPushButton("Not Evaluated")
 
-        filter_configs = [
-            (all, None),
+        self.risk_filter_group = QButtonGroup(self)
+        self.risk_filter_group.setExclusive(False)
+        high = QPushButton("High Risk")
+        low = QPushButton("Low Risk")
+        noRisk = QPushButton("Unknown Risk")
+
+        risk_filter_configs = [
+            (high, FILTER_HIGH_RISK),
+            (low, FILTER_LOW_RISK),
+            (noRisk, FILTER_NOT_EVALUATED_RISK)
+        ]
+
+        eligibility_filter_configs = [
             (yes, FILTER_YES),
             (no, FILTER_NO),
             (not_eval, FILTER_NOT_EVALUATED)
         ]
-        self.all = all
 
-        for btn, filter_value in filter_configs:
+        for btn, filter_value in eligibility_filter_configs:
             btn.setCheckable(True)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet(PATIENTS_FILTER_BUTTON_STYLESHEET)
             btn.setObjectName("SecondaryButton")
             self.eligibility_filter_group.addButton(btn)
-            btn.clicked.connect(lambda _, val=filter_value: self.apply_eligibility_filter(val))
+            btn.clicked.connect(lambda checked, b=btn, val=filter_value: self.apply_eligibility_filter(b, val, checked))
+            controls.addWidget(btn)
+
+        self.risk_label = QLabel("Risk: ")
+        self.risk_label.setStyleSheet(PATIENTS_ELIGIBILITY_LABEL_STYLESHEET)
+        controls.addWidget(self.risk_label)
+
+        for btn, filter_value in risk_filter_configs:
+            btn.setCheckable(True)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(PATIENTS_FILTER_BUTTON_STYLESHEET)
+            btn.setObjectName("SecondaryButton")
+            self.risk_filter_group.addButton(btn)
+            btn.clicked.connect(lambda checked, b=btn, val=filter_value: self.apply_risk_filter(b, val, checked))
             controls.addWidget(btn)
     
-        all.setChecked(True)
         controls.addStretch()
         export_csv_button = QPushButton("Export CSV")
         export_csv_button.setObjectName("SecondaryButton")
@@ -241,6 +290,8 @@ class PatientsView(QWidget):
             ["Subject ID", "Child Name", "Eligibility", "Screener", "Schedule Date", "Comment"]
         )
         self.table.verticalHeader().setVisible(False)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.table.viewport().installEventFilter(self)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -255,7 +306,12 @@ class PatientsView(QWidget):
         layout.addLayout(header)
         layout.addLayout(metrics)
         layout.addLayout(controls)
-        layout.addWidget(self.table, 1)
+        layout.addWidget(self.table)
+        layout.addStretch()
+        # Keep the page's minimum width, as before it was wrapped in a scroll area.
+        self.scroll_area.setMinimumWidth(
+            content.minimumSizeHint().width() + self.scroll_area.verticalScrollBar().sizeHint().width()
+        )
 
         self.apply_preferences(self.preferences, refresh=False)
         self.load_patients()
@@ -278,9 +334,8 @@ class PatientsView(QWidget):
         self.donut_caption.setStyleSheet(
             f"color: {text_color}; font-size: 11px; font-weight: bold;"
         )
-        self.eligibility_label.setStyleSheet(
-            f"font-weight: bold; color: {text_color};"
-        )
+        for label in (self.eligibility_label, self.risk_label):
+            label.setStyleSheet(f"font-weight: bold; color: {text_color};")
         for label in (
             self.pending_forms_label,
             self.ready_exports_label,
@@ -289,6 +344,20 @@ class PatientsView(QWidget):
             label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         if refresh and self.patients:
             self.update_table(self.patients)
+        self._fit_table_to_rows()
+
+    def eventFilter(self, watched, event) -> bool:
+        # Wheel over the table scrolls the page, since the table itself no longer scrolls.
+        if watched is self.table.viewport() and event.type() == QEvent.Type.Wheel:
+            QApplication.sendEvent(self.scroll_area.verticalScrollBar(), event)
+            return True
+        return super().eventFilter(watched, event)
+
+    def _fit_table_to_rows(self) -> None:
+        # Show every row so mouse-wheel scrolling over the table moves the page.
+        header_height = self.table.horizontalHeader().sizeHint().height()
+        rows_height = self.table.verticalHeader().length()
+        self.table.setFixedHeight(header_height + rows_height + 2 * self.table.frameWidth())
 
     def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
         row = QWidget()
@@ -310,7 +379,6 @@ class PatientsView(QWidget):
         text.setProperty("legend_name", name)
         return row, text
 
-
     def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic, this need to be applied to the new list returned by the signal in topbar.py
         self.current_sort = sort_choice
         self.load_patients()
@@ -319,20 +387,43 @@ class PatientsView(QWidget):
         self.current_search_text = search_text
         self.load_patients()
 
-    def apply_eligibility_filter(self, choice: str | None) -> None:
-        self.current_eligibility_filter = choice
+    def toggle_in_group(self, group: QButtonGroup, clicked_btn: QPushButton, checked: bool) -> bool:
+        if checked:
+            for b in group.buttons():
+                if b is not clicked_btn:
+                    b.setChecked(False)
+        return checked
+
+    def apply_eligibility_filter(self, btn, choice: str | None, checked: bool) -> None:
+        active = self.toggle_in_group(self.eligibility_filter_group, btn, checked)
+        self.current_eligibility_filter = choice if active else None
         self.load_patients()
+
+    def clear_filters(self) -> None:
+        self.current_eligibility_filter = None
+        self.current_risk_filter = None
+        for group in (self.eligibility_filter_group, self.risk_filter_group):
+            for b in group.buttons():
+                b.setChecked(False)
+        self.load_patients()
+
+
+    def apply_risk_filter(self, btn, choice: str | None, checked: bool) -> None:
+           active = self.toggle_in_group(self.risk_filter_group, btn, checked)
+           self.current_risk_filter = choice if active else None
+           self.load_patients()
 
     def load_patients(self) -> None:
         patients = list_patients(
             sort_by=self.current_sort,
             eligibility_filter=self.current_eligibility_filter,
+            risk_filter=self.current_risk_filter
         )
         if self.current_search_text:
             patients = self.filter_by_search(patients, self.current_search_text)
         self.update_table(patients)
 
-        # print("filter:", self.current_eligibility_filter, "| sort:", self.current_sort) #debugging
+        # print("filters:", self.current_eligibility_filter, " ", self.current_risk_filter, "| sort:", self.current_sort) #debugging
 
 
     @staticmethod
@@ -405,6 +496,7 @@ class PatientsView(QWidget):
                 )
                 item.setData(Qt.UserRole, patient.get("id"))
                 self.table.setItem(row_index, column_index, item)
+        self._fit_table_to_rows()
  
     
 
