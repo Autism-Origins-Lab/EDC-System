@@ -4,6 +4,7 @@ from app.database.connection import get_connection
 from app.database.repositories.patients import (
     IDENTITY_FIELDS,
     _update_patient,
+    apply_automatic_eligibility,
     get_patient,
 )
 
@@ -159,6 +160,9 @@ def _save_one_to_one_form(table_name: str, patient_id: int, data: dict) -> None:
                 connection, patient_id,
                 {key: value for key, value in fields.items() if key in IDENTITY_FIELDS},
             )
+
+        if table_name in ("telephone_screenings", "screening_questionnaires"): #cuz gestational age & age are in diff. re checks eligibility
+            apply_automatic_eligibility(connection, patient_id)
 
 
 def _get_one_to_one_form(table_name: str, patient_id: int) -> dict | None:

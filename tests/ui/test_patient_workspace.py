@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
@@ -285,3 +287,46 @@ def test_disabled_unsaved_warning_discards_without_prompt(
     view.close()
     assert not view.isVisible()
     assert get_patient(patient_id)["child_name"] is None
+
+
+def test_telephone_save_shows_automatic_ineligibility(workspace, qtbot):
+    view = workspace
+    update_patient(view.patient_id, {"date_of_birth": date.today().isoformat()})
+    view.navigation.setCurrentRow(1)
+    telephone = view.telephone_screening_view
+    telephone.eligibility_combo.setCurrentText("Yes")
+    telephone.gestational_input.setText("35")
+    qtbot.mouseClick(view.save_button, Qt.MouseButton.LeftButton)
+
+    assert telephone.eligibility_combo.currentText() == "No"
+    assert telephone.eligibility_comment_input.text() == "Born at or before 37 weeks gestation."
+    assert not telephone.eligibility_comment_input.isHidden()
+    assert not view.has_unsaved_changes()
+    assert view.eligibility_label.text() == "No"
+
+
+def test_overview_birthday_shows_automatic_ineligibility_on_telephone_tab(workspace, qtbot):
+    view = workspace
+    view.overview_view.date_of_birth_input.setText("2007-09-27")
+    qtbot.mouseClick(view.save_button, Qt.MouseButton.LeftButton)
+    view.navigation.setCurrentRow(1)
+
+    telephone = view.telephone_screening_view
+    assert telephone.eligibility_combo.currentText() == "No"
+    assert telephone.eligibility_comment_input.text() == "Age is 3 months or older."
+
+
+def test_telephone_form_button_shows_automatic_ineligibility(temp_database, qtbot, monkeypatch):
+    from app.ui.forms.telephone_screening_view import TelephoneScreeningView
+
+    monkeypatch.setattr(QMessageBox, "information", lambda *args: None)
+    patient_id = create_patient("FORM-1")
+    update_patient(patient_id, {"date_of_birth": date.today().isoformat()})
+    form = TelephoneScreeningView(patient_id)
+    qtbot.addWidget(form)
+    form.eligibility_combo.setCurrentText("Yes")
+    form.gestational_input.setText("35")
+
+    assert form.save()
+    assert form.eligibility_combo.currentText() == "No"
+    assert form.eligibility_comment_input.text() == "Born at or before 37 weeks gestation."

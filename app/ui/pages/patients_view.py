@@ -1,7 +1,8 @@
-from PySide6.QtCore import QRectF, Qt, Signal, Slot
+from PySide6.QtCore import QEvent, QRectF, Qt, Signal, Slot
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QButtonGroup,
     QFileDialog,
     QHBoxLayout,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -42,6 +44,7 @@ from app.ui.theme import (
     PATIENTS_FILTER_BUTTON_STYLESHEET,
     PATIENTS_LEGEND_TEXT_STYLESHEET,
     PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET,
+    PATIENTS_PAGE_SCROLL_STYLESHEET,
     PATIENTS_PENDING_COLOR,
     PATIENTS_READY_COLOR,
     PATIENTS_TABLE_ITEM_COLOR,
@@ -121,7 +124,21 @@ class PatientsView(QWidget):
         self.current_eligibility_filter: str | None = None
         self.current_search_text = ""
 
-        layout = QVBoxLayout(self)
+        # The whole page scrolls as one; the table grows to fit its rows instead of scrolling itself.
+        page_layout = QVBoxLayout(self)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("PatientsScroll")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setStyleSheet(PATIENTS_PAGE_SCROLL_STYLESHEET)
+        self.scroll_area.viewport().setAutoFillBackground(False)
+        content = QWidget()
+        content.setObjectName("PatientsContent")
+        self.scroll_area.setWidget(content)
+        page_layout.addWidget(self.scroll_area)
+
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(28, 28, 28, 18)
         layout.setSpacing(18)
 
@@ -273,6 +290,8 @@ class PatientsView(QWidget):
             ["Subject ID", "Child Name", "Eligibility", "Screener", "Schedule Date", "Comment"]
         )
         self.table.verticalHeader().setVisible(False)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.table.viewport().installEventFilter(self)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -287,7 +306,12 @@ class PatientsView(QWidget):
         layout.addLayout(header)
         layout.addLayout(metrics)
         layout.addLayout(controls)
-        layout.addWidget(self.table, 1)
+        layout.addWidget(self.table)
+        layout.addStretch()
+        # Keep the page's minimum width, as before it was wrapped in a scroll area.
+        self.scroll_area.setMinimumWidth(
+            content.minimumSizeHint().width() + self.scroll_area.verticalScrollBar().sizeHint().width()
+        )
 
         self.apply_preferences(self.preferences, refresh=False)
         self.load_patients()
@@ -320,6 +344,20 @@ class PatientsView(QWidget):
             label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         if refresh and self.patients:
             self.update_table(self.patients)
+        self._fit_table_to_rows()
+
+    def eventFilter(self, watched, event) -> bool:
+        # Wheel over the table scrolls the page, since the table itself no longer scrolls.
+        if watched is self.table.viewport() and event.type() == QEvent.Type.Wheel:
+            QApplication.sendEvent(self.scroll_area.verticalScrollBar(), event)
+            return True
+        return super().eventFilter(watched, event)
+
+    def _fit_table_to_rows(self) -> None:
+        # Show every row so mouse-wheel scrolling over the table moves the page.
+        header_height = self.table.horizontalHeader().sizeHint().height()
+        rows_height = self.table.verticalHeader().length()
+        self.table.setFixedHeight(header_height + rows_height + 2 * self.table.frameWidth())
 
     def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
         row = QWidget()
@@ -458,6 +496,7 @@ class PatientsView(QWidget):
                 )
                 item.setData(Qt.UserRole, patient.get("id"))
                 self.table.setItem(row_index, column_index, item)
+        self._fit_table_to_rows()
  
     
 
