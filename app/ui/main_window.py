@@ -16,6 +16,9 @@ from app.ui.components.topbar import TopBar
 from app.ui.pages.patients_view import PatientsView
 from app.ui.pages.settings_view import SettingsView
 from app.ui.theme import application_stylesheet
+from app.ui.forms.summary_view import PatientExportView
+from app.ui.forms.appointment_view import appointmentView
+
 
 
 # Export patient data to excel sheet or a patient summary 

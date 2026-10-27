@@ -11,8 +11,8 @@ from reportlab.platypus import Image
 import io
 import urllib.request
 
-from app.database.queries.patients import get_patient
-from app.database.queries.forms import (
+from app.database.repositories.patients import get_patient
+from app.database.repositories.forms import (
     get_telephone_screening,
     get_screening_questionnaire,
     get_medical_history,

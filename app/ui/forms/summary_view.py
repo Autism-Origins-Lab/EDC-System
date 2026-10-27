@@ -16,8 +16,9 @@ from PySide6.QtCore import QUrl
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QDesktopServices, QIcon
 
-from app.database.queries.patients import list_patients
-from app.database.queries.patient_pdf_export import build_patient_pdf
+from app.database.repositories.patients import list_patients
+from app.database.repositories.patient_pdf_export import build_patient_pdf
+
 
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 
@@ -102,6 +103,12 @@ class PatientExportView(QWidget):
         self.main_layout.addWidget(self.export_button)
         self.export_button.setIcon(_icon("exportbutton.png"))
         self.export_button.setIconSize(QSize(20, 20))
+
+        self.setStyleSheet("""
+            QListWidget::item:selected { background: #dbeafe; color: #1f2937; border: 1px solid #e5e7eb }
+            QListWidget::item:hover    { background: #f1f5f9; border: 1px solid #e5e7eb; }
+        """)
+
 
         self.refresh_patient_list()
 
