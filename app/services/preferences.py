@@ -13,6 +13,7 @@ DEFAULT_PREFERENCES = {
     "date_format": "YYYY-MM-DD",
     "confirm_delete": True,
     "warn_unsaved_changes": True,
+    "backup_directory": "",
 }
 
 PREFERENCE_OPTIONS = {
@@ -35,6 +36,9 @@ def normalize_preferences(values: dict | None) -> dict:
     for key in ("confirm_delete", "warn_unsaved_changes"):
         if isinstance(values.get(key), bool):
             preferences[key] = values[key]
+    directory = values.get("backup_directory")
+    if isinstance(directory, str) and "\0" not in directory:
+        preferences["backup_directory"] = directory.strip()
     return preferences
 
 

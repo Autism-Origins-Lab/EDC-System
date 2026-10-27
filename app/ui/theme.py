@@ -43,23 +43,49 @@ QDialog#PatientWorkspace QGroupBox::title {
 QDialog#PatientWorkspace QGroupBox QWidget {
     background-color: transparent;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation {
-    background-color: #f6f7f9;
-    border: 1px solid #e5e7eb;
-    border-radius: 9px;
-    padding: 8px;
-    outline: 0;
+QDialog#PatientWorkspace QFrame#FormStep,
+QDialog#PatientWorkspace QWidget#FormStepTrack {
+    background: transparent;
+    border: 0;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item {
-    padding: 12px;
-    border-radius: 5px;
+QDialog#PatientWorkspace QLabel#FormStepTitle {
+    background: transparent;
+    color: #6b7280;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item:selected {
-    background-color: #eaf1ff;
-    color: #166AB8;
+QDialog#PatientWorkspace QLabel#FormStepNumber {
+    background-color: #ffffff;
+    color: #6b7280;
+    border: 2px solid #dfe4e1;
+    border-radius: 22px;
+    font-size: 20px;
+    font-weight: 600;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item:hover {
-    background-color: #F1F5F9;
+QDialog#PatientWorkspace QFrame#FormStep[stepState="saved"] QLabel#FormStepNumber {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 #1b7652, stop: 1 #258046);
+    color: #ffffff;
+    border-color: #218057;
+}
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepNumber {
+    color: #1c7c54;
+    border: 3px solid #27865c;
+}
+QDialog#PatientWorkspace QFrame#FormStep[stepState="saved"] QLabel#FormStepTitle,
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepTitle {
+    color: #1c7c54;
+}
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepTitle {
+    font-weight: 600;
+}
+QDialog#PatientWorkspace QFrame#FormConnector {
+    background-color: #dfe4e1;
+    border: 0;
+}
+QDialog#PatientWorkspace QFrame#FormConnector[filled="true"] {
+    background-color: #27865c;
+}
+QDialog#PatientWorkspace QFrame#FormConnector[edge="true"] {
+    background: transparent;
 }
 QDialog#PatientWorkspace QLineEdit,
 QDialog#PatientWorkspace QComboBox,
@@ -122,8 +148,17 @@ QDialog#PatientWorkspace QPushButton#WorkspaceSave {
 QDialog#PatientWorkspace QPushButton#WorkspaceSave:hover {
     background-color: #115492;
 }
-QDialog#PatientWorkspace QPushButton#WorkspaceClose:hover {
+QDialog#PatientWorkspace QPushButton#WorkspaceBack:hover {
     background-color: #eaf1ff;
+}
+QDialog#PatientWorkspace QPushButton:disabled,
+QDialog#PatientWorkspace QPushButton#WorkspaceSave:disabled {
+    background-color: #f6f7f9;
+    color: #6b7280;
+    border-color: #e5e7eb;
+}
+QDialog#PatientWorkspace QPushButton:focus {
+    border: 2px solid #166AB8;
 }
 QDialog#PatientWorkspace QPushButton#WorkspaceDelete {
     color: #b42318;
@@ -132,11 +167,19 @@ QDialog#PatientWorkspace QPushButton#WorkspaceDelete {
 QDialog#PatientWorkspace QPushButton#WorkspaceDelete:hover {
     background-color: #fff1f0;
 }
-QDialog#PatientWorkspace QTableWidget {
+QDialog#PatientWorkspace QTableWidget,
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers {
     background-color: #ffffff;
     color: #1f2937;
     border: 1px solid #e5e7eb;
     gridline-color: #EDF2F7;
+}
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers::item {
+    padding: 6px;
+}
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers::item:selected {
+    background-color: #eaf1ff;
+    color: #1f2937;
 }
 QDialog#PatientWorkspace QHeaderView::section {
     background-color: #115492;
@@ -559,6 +602,11 @@ PATIENT_DETAIL_MARK_COMPLETE_STYLESHEET = _patient_completion_button_stylesheet(
 
 # SettingsView: option labels, checkboxes, combo boxes, and popup lists.
 SETTINGS_STYLESHEET = """
+QWidget#SettingsView QWidget#SettingsContent {
+    background-color: #f8fafc;
+}
+QWidget#SettingsView QLabel { color: #1f2937; }
+QWidget#SettingsView QLabel#BackupTitle { font-size: 15px; font-weight: 600; }
 QWidget#SettingsView QLabel#SettingsOptionLabel,
 QWidget#SettingsView QCheckBox#SettingsOptionCheckBox {
     color: #1f2937;
@@ -645,6 +693,10 @@ QMessageBox QLabel { color: #e5e7eb; }
 """
 
 DARK_SETTINGS_STYLESHEET = """
+QWidget#SettingsView QWidget#SettingsContent {
+    background-color: #111827;
+}
+QWidget#SettingsView QLabel { color: #e5e7eb; }
 QWidget#SettingsView QLabel#SettingsOptionLabel,
 QWidget#SettingsView QCheckBox#SettingsOptionCheckBox {
     color: #e5e7eb;
@@ -686,19 +738,54 @@ QDialog#PatientWorkspace QLineEdit,
 QDialog#PatientWorkspace QComboBox,
 QDialog#PatientWorkspace QTextEdit,
 QDialog#PatientWorkspace QPushButton,
-QDialog#PatientWorkspace QTableWidget {
+QDialog#PatientWorkspace QTableWidget,
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers {
     background-color: #1f2937;
     color: #e5e7eb;
     border-color: #4b5563;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation {
+QDialog#PatientWorkspace QLabel#FormStepTitle {
+    color: #9ca3af;
+}
+QDialog#PatientWorkspace QLabel#FormStepNumber {
+    background-color: #111827;
+    color: #9ca3af;
+    border-color: #4b5563;
+}
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepNumber {
+    background-color: #111827;
+    color: #6fdaa6;
+    border-color: #6fdaa6;
+}
+QDialog#PatientWorkspace QFrame#FormStep[stepState="saved"] QLabel#FormStepTitle,
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepTitle {
+    color: #6fdaa6;
+}
+QDialog#PatientWorkspace QFrame#FormConnector {
+    background-color: #4b5563;
+}
+QDialog#PatientWorkspace QFrame#FormConnector[filled="true"] {
+    background-color: #6fdaa6;
+}
+QDialog#PatientWorkspace QFrame#FormConnector[edge="true"] {
+    background: transparent;
+}
+QDialog#PatientWorkspace QPushButton:disabled,
+QDialog#PatientWorkspace QPushButton#WorkspaceSave:disabled {
     background-color: #182235;
-    color: #e5e7eb;
+    color: #9ca3af;
     border-color: #374151;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item:selected {
+QDialog#PatientWorkspace QPushButton#WorkspaceDelete {
+    color: #fca5a5;
+    border-color: #fca5a5;
+}
+QDialog#PatientWorkspace QPushButton#WorkspaceDelete:hover {
+    background-color: #3b2029;
+}
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers::item:selected {
     background-color: #243b5d;
-    color: #93c5fd;
+    color: #e5e7eb;
 }
 QDialog#PatientWorkspace QComboBox QAbstractItemView,
 QDialog#PatientWorkspace QHeaderView::section {

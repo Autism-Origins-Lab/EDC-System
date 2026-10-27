@@ -8,7 +8,7 @@ The application is a Python/PySide6 desktop app backed by a local SQLite databas
 
 - Patient dashboard with search, patient metrics, and a table of participant records.
 - New patient creation with unique Subject ID validation.
-- Patient workspace with left navigation for:
+- Guided patient workspace with a non-clickable section indicator and Back / Save and Continue controls for:
   - Overview
   - Telephone Screening
   - Screening Questionnaire
@@ -17,8 +17,11 @@ The application is a Python/PySide6 desktop app backed by a local SQLite databas
   - Procedure Schedule
   - Mullen Assessment
   - Video References
+  - Review Answers
 - Editable overview with shared participant identity and familial risk.
-- Active-section saving and save/discard/cancel prompts when navigating or closing with edits.
+- Section saving before advancing, drafts retained when going back, and save/discard/cancel prompts when closing with edits.
+- Final answer summary with blank answers displayed as N/A. Mark as Complete requires a screener name and is independent of eligibility. Saving edits to a completed record returns it to Pending for review.
+- Optional Yes/No questions default to Not answered and retain three distinct stored states: unanswered, Yes, and No. Existing saved Yes/No values are preserved; historical No values cannot be automatically identified as previously unanswered.
 - Persistent local settings for theme, table density, startup page, date display, and safety prompts.
 - Patient deletion with cascading related-record cleanup and optional confirmation.
 - SQLite-backed save/load helpers for patient records and form data.
@@ -105,6 +108,45 @@ Local database files are ignored by Git.
 
 Application preferences are stored separately at `data/preferences.json`. This file is
 also local-only and is ignored by Git; deleting it restores the built-in defaults.
+
+### Database backup and recovery
+
+Settings provides **Create Backup**, **Restore Backup**, and **Choose Backup Folder**.
+The default backup folder is `data/backups/`. Choose a protected folder on a separate
+device or storage system when protection against computer/drive failure is needed.
+
+Starting the application creates a validated baseline snapshot. Committed database
+changes request background snapshots; rapid requests are combined so copies do not
+queue indefinitely. Reads and rolled-back saves do not request a backup. Automatic
+backups retain the 20 most recent copies plus one per backup day for up to 30 backup
+days. Manual backups and copies made before deletion, upgrade, or restore are never
+automatically removed. Copies have unique UTC timestamps and are published only
+after the SQLite backup API completes and validation succeeds.
+
+Backups include every database table, patient/form relationships, saved Mullen
+scoring context, completion statuses, and video references. Actual video files and
+application preferences are separate and are not included. SQLite backup files
+contain the same sensitive patient information as the live database and should be
+stored with equivalent access protection; the app does not encrypt them.
+
+Restore replaces the entire patient database; it does not merge individual records.
+Close patient forms first. The application previews the selected file's date and
+patient count, rejects damaged/unrelated/newer-version databases, checks integrity
+and foreign keys, and upgrades supported older backups in a temporary working copy.
+It preserves the current database before changing it. A damaged current database
+is preserved as a ZIP containing its original database and journal files. Healthy
+restores use SQLite's transactional backup API, including when WAL is enabled.
+The selected backup is not modified. Restore success refreshes the patient list.
+
+If the database cannot open during startup, recovery is available before the main
+window appears. An initialization marker detects a missing/empty database in an
+existing workspace so it is not silently replaced with an empty patient list.
+A database lock prevents two application instances using the same database.
+Backup errors are reported separately from save errors: an already committed save
+remains saved if the backup destination is unavailable. Retry **Create Backup** in
+Settings after correcting the destination. **Restore Defaults** preserves the chosen
+backup folder. Recovery copies contain real data; remove them only when no longer
+needed.
 
 The schema is centered on the `patients` table. Related tables use `patient_id` foreign keys with `ON DELETE CASCADE` so records stay tied to their patient:
 

@@ -37,12 +37,13 @@ from app.ui.theme import (
 
 
 class MullenView(QWidget):
-    def __init__(self, patient_id: int):
+    def __init__(self, patient_id: int, preferences: dict | None = None):
         super().__init__()
 
         self.patient_id = patient_id
         self._loading = False
-        self.date_format = load_preferences()["date_format"]
+        self.preferences = preferences or load_preferences()
+        self.date_format = self.preferences["date_format"]
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 28, 28, 24)
@@ -197,7 +198,7 @@ class MullenView(QWidget):
             themed_stylesheet(
                 MULLEN_SCORE_TABLE_STYLESHEET,
                 DARK_MULLEN_STYLESHEET,
-                load_preferences()["theme"],
+                self.preferences["theme"],
             )
         )
 
@@ -403,7 +404,16 @@ class MullenView(QWidget):
             or "Saved scores loaded. Editing raw scores or scoring options recalculates results."
         )
 
-    def save(self) -> bool:
+    def has_answers(self) -> bool:
+        return bool(
+            self.assessment_date_input.text().strip()
+            or self.confidence_combo.currentData() is not None
+            or self.age_calculation_combo.currentData() is not None
+            or any(field.text().strip() for field in self.raw_score_inputs.values())
+            or any(field.text().strip() for field in self.age_equivalent_inputs.values())
+        )
+
+    def save(self, *, show_confirmation=True) -> bool:
         errors = self.recalculate_scores()
         if errors:
             QMessageBox.warning(
@@ -422,11 +432,12 @@ class MullenView(QWidget):
             return False
 
         save_mullen_assessment(self.patient_id, data, context=self.collect_context())
-        QMessageBox.information(
-            self,
-            "Saved",
-            "Mullen scores saved successfully.",
-        )
+        if show_confirmation:
+            QMessageBox.information(
+                self,
+                "Saved",
+                "Mullen scores saved successfully.",
+            )
         return True
 
     def create_input(

@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox,
     QFormLayout,
     QMessageBox,
     QPushButton,
@@ -14,6 +13,7 @@ from app.database.repositories.forms import (
     get_family_medical_history,
     save_family_medical_history,
 )
+from app.ui.components.yes_no_input import YesNoInput
 
 
 class FamilyMedicalHistoryView(QWidget):
@@ -31,32 +31,32 @@ class FamilyMedicalHistoryView(QWidget):
         layout.setSpacing(14)
 
         form = QFormLayout()
-        self.family_psychiatric_checkbox = QCheckBox("Family psychiatric diagnosis")
+        self.family_psychiatric_input = YesNoInput("Family psychiatric diagnosis")
         self.family_psychiatric_description_input = QTextEdit()
         self.family_psychiatric_description_input.setFixedHeight(80)
-        self.parent_autism_checkbox = QCheckBox("Mother or father diagnosed with autism")
-        self.parent_schizophrenia_checkbox = QCheckBox("Mother or father diagnosed with schizophrenia")
-        self.parent_learning_disability_checkbox = QCheckBox(
+        self.parent_autism_input = YesNoInput("Mother or father diagnosed with autism")
+        self.parent_schizophrenia_input = YesNoInput("Mother or father diagnosed with schizophrenia")
+        self.parent_learning_disability_input = YesNoInput(
             "Mother or father diagnosed with learning/intellectual disability"
         )
-        self.parent_substance_abuse_checkbox = QCheckBox("Mother or father has substance abuse history")
-        self.has_siblings_checkbox = QCheckBox("Child has siblings")
-        self.sibling_autism_checkbox = QCheckBox("Sibling diagnosed with autism")
-        self.sibling_adhd_checkbox = QCheckBox("Sibling diagnosed with ADHD")
-        self.same_father_checkbox = QCheckBox("Same biological father as older sibling")
-        self.same_mother_checkbox = QCheckBox("Same biological mother as older sibling")
+        self.parent_substance_abuse_input = YesNoInput("Mother or father has substance abuse history")
+        self.has_siblings_input = YesNoInput("Child has siblings")
+        self.sibling_autism_input = YesNoInput("Sibling diagnosed with autism")
+        self.sibling_adhd_input = YesNoInput("Sibling diagnosed with ADHD")
+        self.same_father_input = YesNoInput("Same biological father as older sibling")
+        self.same_mother_input = YesNoInput("Same biological mother as older sibling")
 
-        form.addRow("", self.family_psychiatric_checkbox)
+        self.family_psychiatric_input.add_to_form(form)
         form.addRow("Psychiatric History Description", self.family_psychiatric_description_input)
-        form.addRow("", self.parent_autism_checkbox)
-        form.addRow("", self.parent_schizophrenia_checkbox)
-        form.addRow("", self.parent_learning_disability_checkbox)
-        form.addRow("", self.parent_substance_abuse_checkbox)
-        form.addRow("", self.has_siblings_checkbox)
-        form.addRow("", self.sibling_autism_checkbox)
-        form.addRow("", self.sibling_adhd_checkbox)
-        form.addRow("", self.same_father_checkbox)
-        form.addRow("", self.same_mother_checkbox)
+        self.parent_autism_input.add_to_form(form)
+        self.parent_schizophrenia_input.add_to_form(form)
+        self.parent_learning_disability_input.add_to_form(form)
+        self.parent_substance_abuse_input.add_to_form(form)
+        self.has_siblings_input.add_to_form(form)
+        self.sibling_autism_input.add_to_form(form)
+        self.sibling_adhd_input.add_to_form(form)
+        self.same_father_input.add_to_form(form)
+        self.same_mother_input.add_to_form(form)
 
         save_button = QPushButton("Save Family Medical History")
         save_button.setCursor(Qt.PointingHandCursor)
@@ -76,40 +76,39 @@ class FamilyMedicalHistoryView(QWidget):
         if not data:
             return
 
-        self.family_psychiatric_checkbox.setChecked(bool(data.get("family_psychiatric")))
+        self.family_psychiatric_input.set_value(data.get("family_psychiatric"))
         self.family_psychiatric_description_input.setPlainText(
             data.get("family_psychiatric_description") or ""
         )
-        self.parent_autism_checkbox.setChecked(bool(data.get("parent_autism")))
-        self.parent_schizophrenia_checkbox.setChecked(bool(data.get("parent_schizophrenia")))
-        self.parent_learning_disability_checkbox.setChecked(
-            bool(data.get("parent_learning_disability"))
-        )
-        self.parent_substance_abuse_checkbox.setChecked(bool(data.get("parent_substance_abuse")))
-        self.has_siblings_checkbox.setChecked(bool(data.get("has_siblings")))
-        self.sibling_autism_checkbox.setChecked(bool(data.get("sibling_autism")))
-        self.sibling_adhd_checkbox.setChecked(bool(data.get("sibling_adhd")))
-        self.same_father_checkbox.setChecked(bool(data.get("same_father_as_older_sibling")))
-        self.same_mother_checkbox.setChecked(bool(data.get("same_mother_as_older_sibling")))
+        self.parent_autism_input.set_value(data.get("parent_autism"))
+        self.parent_schizophrenia_input.set_value(data.get("parent_schizophrenia"))
+        self.parent_learning_disability_input.set_value(data.get("parent_learning_disability"))
+        self.parent_substance_abuse_input.set_value(data.get("parent_substance_abuse"))
+        self.has_siblings_input.set_value(data.get("has_siblings"))
+        self.sibling_autism_input.set_value(data.get("sibling_autism"))
+        self.sibling_adhd_input.set_value(data.get("sibling_adhd"))
+        self.same_father_input.set_value(data.get("same_father_as_older_sibling"))
+        self.same_mother_input.set_value(data.get("same_mother_as_older_sibling"))
 
     def collect_data(self) -> dict:
         return {
-            "family_psychiatric": int(self.family_psychiatric_checkbox.isChecked()),
+            "family_psychiatric": self.family_psychiatric_input.value(),
             "family_psychiatric_description": (
                 self.family_psychiatric_description_input.toPlainText().strip()
             ),
-            "parent_autism": int(self.parent_autism_checkbox.isChecked()),
-            "parent_schizophrenia": int(self.parent_schizophrenia_checkbox.isChecked()),
-            "parent_learning_disability": int(self.parent_learning_disability_checkbox.isChecked()),
-            "parent_substance_abuse": int(self.parent_substance_abuse_checkbox.isChecked()),
-            "has_siblings": int(self.has_siblings_checkbox.isChecked()),
-            "sibling_autism": int(self.sibling_autism_checkbox.isChecked()),
-            "sibling_adhd": int(self.sibling_adhd_checkbox.isChecked()),
-            "same_father_as_older_sibling": int(self.same_father_checkbox.isChecked()),
-            "same_mother_as_older_sibling": int(self.same_mother_checkbox.isChecked()),
+            "parent_autism": self.parent_autism_input.value(),
+            "parent_schizophrenia": self.parent_schizophrenia_input.value(),
+            "parent_learning_disability": self.parent_learning_disability_input.value(),
+            "parent_substance_abuse": self.parent_substance_abuse_input.value(),
+            "has_siblings": self.has_siblings_input.value(),
+            "sibling_autism": self.sibling_autism_input.value(),
+            "sibling_adhd": self.sibling_adhd_input.value(),
+            "same_father_as_older_sibling": self.same_father_input.value(),
+            "same_mother_as_older_sibling": self.same_mother_input.value(),
         }
 
-    def save(self) -> bool:
+    def save(self, *, show_confirmation=True) -> bool:
         save_family_medical_history(self.patient_id, self.collect_data())
-        QMessageBox.information(self, "Saved", "Family medical history saved successfully.")
+        if show_confirmation:
+            QMessageBox.information(self, "Saved", "Family medical history saved successfully.")
         return True

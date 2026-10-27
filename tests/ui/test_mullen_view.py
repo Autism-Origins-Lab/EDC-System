@@ -24,10 +24,10 @@ def workspace(temp_database, qtbot, monkeypatch):
     monkeypatch.setattr(QMessageBox, "warning", lambda *args: warnings.append(args[-1]))
     patient_id = create_patient("MULLEN-UI")
     update_patient(patient_id, {"date_of_birth": "2025-01-01"})
-    view = PatientDetailView(patient_id)
+    view = PatientDetailView(patient_id, preferences=DEFAULT_PREFERENCES.copy())
     qtbot.addWidget(view)
     view.show()
-    view.navigation.setCurrentRow(6)
+    view._show_step(6)
     view.warnings = warnings
     return view
 
@@ -89,7 +89,7 @@ def test_blank_and_out_of_range_raw_inputs_clear_previous_results(workspace):
     assert not workspace.save_current_section()
 
 
-def test_save_reopen_and_discard_restore_scores_and_context(
+def test_save_reopen_and_discard_preserve_scores_and_context(
     workspace, qtbot, monkeypatch
 ):
     page = workspace.mullen_view
@@ -105,18 +105,15 @@ def test_save_reopen_and_discard_restore_scores_and_context(
         "age_calculation": "calendar",
     }
     assert get_mullen_assessment(workspace.patient_id)["gross_motor"]["t_score"] == 37
-    saved_state = workspace._input_state(page)
     page.assessment_date_input.setText("2025-04-01")
     page.confidence_combo.setCurrentIndex(page.confidence_combo.findData(95))
     page.raw_score_inputs[0].setText("5")
     monkeypatch.setattr(
         QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Discard
     )
-    workspace.navigation.setCurrentRow(0)
-    assert workspace._input_state(page) == saved_state
-    assert not workspace.has_unsaved_changes()
-    workspace.navigation.setCurrentRow(6)
-    assert workspace._input_state(page) == saved_state
+    workspace.go_back()
+    assert workspace.has_unsaved_changes()
+    workspace.close()
     reopened = PatientDetailView(workspace.patient_id)
     qtbot.addWidget(reopened)
     assert reopened.mullen_view.t_score_inputs[0].text() == "37"

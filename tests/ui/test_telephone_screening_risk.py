@@ -2,7 +2,10 @@ import pytest
 
 from app import config
 from app.database.connection import get_connection
-from app.database.repositories.forms import get_telephone_screening, save_telephone_screening
+from app.database.repositories.forms import (
+    get_telephone_screening,
+    save_telephone_screening,
+)
 from app.database.repositories.patients import create_patient, get_patient
 from app.database.schema import initialize_database
 from app.ui.forms.telephone_screening_view import TelephoneScreeningView
@@ -31,6 +34,10 @@ def test_risk_clicks_save_and_reload(qtbot, monkeypatch, risk_database):
             view.save_button.click()
 
         assert get_patient(patient_id)["risk"] == expected
+        if expected is None:
+            saved = get_telephone_screening(patient_id)
+            assert saved["high_familial_risk"] is None
+            assert saved["low_familial_risk"] is None
         assert get_patient(other_id)["risk"] is None
         reloaded = TelephoneScreeningView(patient_id)
         qtbot.addWidget(reloaded)

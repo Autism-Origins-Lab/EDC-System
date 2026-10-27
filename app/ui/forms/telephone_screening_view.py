@@ -19,10 +19,10 @@ from app.services.preferences import format_date, load_preferences, parse_date
 
 class TelephoneScreeningView(QWidget):
     screening_saved = Signal()
-    def __init__(self, patient_id: int):
+    def __init__(self, patient_id: int, preferences: dict | None = None):
         super().__init__()
         self.patient_id = patient_id
-        self.date_format = load_preferences()["date_format"]
+        self.date_format = (preferences or load_preferences())["date_format"]
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
@@ -34,7 +34,6 @@ class TelephoneScreeningView(QWidget):
         self.appointment_date_input = QLineEdit()
         self.screening_date_input.setPlaceholderText(self.date_format)
         self.appointment_date_input.setPlaceholderText(self.date_format)
-        self.screener_input = QLineEdit()
 
         self.eligibility_comment_input = QLineEdit()
         self.eligibility_comment_input.setPlaceholderText("Enter reason")
@@ -67,7 +66,6 @@ class TelephoneScreeningView(QWidget):
 
         self.form.addRow("Screening Date", self.screening_date_input)
         self.form.addRow("Appointment Date", self.appointment_date_input)
-        self.form.addRow("Screener", self.screener_input)
         self.form.addRow("Eligible for Participation", self.eligibility_combo)
 
         self.form.addRow("Comment", self.eligibility_comment_input)
@@ -105,7 +103,6 @@ class TelephoneScreeningView(QWidget):
         self.appointment_date_input.setText(
             format_date(data.get("appointment_date"), self.date_format)
         )
-        self.screener_input.setText(data.get("screener") or "")
         self.eligibility_combo.setCurrentText(data.get("eligibility") or "Not evaluated")
         self.eligibility_comment_input.setText(data.get("eligibility_comment") or "")
         self.update_comment_visibility(self.eligibility_combo.currentText())
@@ -129,6 +126,7 @@ class TelephoneScreeningView(QWidget):
     def collect_data(self) -> dict:
         consent_text = self.verbal_consent_combo.currentText()
         eligibility = self.eligibility_combo.currentText()
+        risk_selected = self.high_risk_checkbox.isChecked() or self.low_risk_checkbox.isChecked()
 
         if consent_text == "Yes":
             verbal_consent = 1
@@ -140,15 +138,14 @@ class TelephoneScreeningView(QWidget):
         return {
             "screening_date": self.screening_date_input.text().strip(),
             "appointment_date": self.appointment_date_input.text().strip(),
-            "screener": self.screener_input.text().strip(),
             "eligibility": eligibility,
             "eligibility_comment": (
                 self.eligibility_comment_input.text().strip()
                 if eligibility == "No"
                 else ""
             ),
-            "high_familial_risk": int(self.high_risk_checkbox.isChecked()),
-            "low_familial_risk": int(self.low_risk_checkbox.isChecked()),
+            "high_familial_risk": int(self.high_risk_checkbox.isChecked()) if risk_selected else None,
+            "low_familial_risk": int(self.low_risk_checkbox.isChecked()) if risk_selected else None,
             "schedule_date": self.schedule_date_input.text().strip(),
             "birthweight": self.birthweight_input.text().strip(),
             "gestational": self.gestational_input.text().strip(),
@@ -156,7 +153,7 @@ class TelephoneScreeningView(QWidget):
             "consent_initials": self.initials_input.text().strip(),
         }
 
-    def save(self) -> bool:
+    def save(self, *, show_confirmation=True) -> bool:
         data = self.collect_data()
         try:
             for field_name, label in (
@@ -177,11 +174,12 @@ class TelephoneScreeningView(QWidget):
         self.load_existing_data() #immediate load
 
 
-        QMessageBox.information(
-            self,
-            "Saved",
-            "Telephone screening saved successfully.",
-        )
+        if show_confirmation:
+            QMessageBox.information(
+                self,
+                "Saved",
+                "Telephone screening saved successfully.",
+            )
         self.screening_saved.emit() #signals complete, so that the button can update immediately after save is pressed.
         return True
     

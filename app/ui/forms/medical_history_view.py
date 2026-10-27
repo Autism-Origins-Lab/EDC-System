@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox,
     QFormLayout,
     QLineEdit,
     QMessageBox,
@@ -12,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.repositories.forms import get_medical_history, save_medical_history
+from app.ui.components.yes_no_input import YesNoInput
 
 
 class MedicalHistoryView(QWidget):
@@ -31,40 +31,40 @@ class MedicalHistoryView(QWidget):
         form = QFormLayout()
         self.general_health_input = QTextEdit()
         self.general_health_input.setFixedHeight(80)
-        self.seen_neurologist_checkbox = QCheckBox("Seen neurologist")
+        self.seen_neurologist_input = YesNoInput("Seen neurologist")
         self.neurologist_description_input = QTextEdit()
         self.neurologist_description_input.setFixedHeight(80)
-        self.head_injury_checkbox = QCheckBox("Head injury")
+        self.head_injury_input = YesNoInput("Head injury")
         self.head_injury_description_input = QTextEdit()
         self.head_injury_description_input.setFixedHeight(80)
-        self.genetic_abnormalities_checkbox = QCheckBox("Genetic abnormalities")
+        self.genetic_abnormalities_input = YesNoInput("Genetic abnormalities")
         self.genetic_abnormalities_description_input = QTextEdit()
         self.genetic_abnormalities_description_input.setFixedHeight(80)
-        self.seizure_epileptic_attack_checkbox = QCheckBox("Seizure or epileptic attack")
+        self.seizure_epileptic_attack_input = YesNoInput("Seizure or epileptic attack")
         self.gestational_age_input = QLineEdit()
         self.birthweight_input = QLineEdit()
         self.birthlength_input = QLineEdit()
-        self.pregnancy_complications_checkbox = QCheckBox("Pregnancy or birth complications")
+        self.pregnancy_complications_input = YesNoInput("Pregnancy or birth complications")
         self.pregnancy_complications_description_input = QTextEdit()
         self.pregnancy_complications_description_input.setFixedHeight(80)
 
         form.addRow("General Health", self.general_health_input)
-        form.addRow("", self.seen_neurologist_checkbox)
+        self.seen_neurologist_input.add_to_form(form)
         form.addRow("Neurologist Description", self.neurologist_description_input)
-        form.addRow("", self.head_injury_checkbox)
+        self.head_injury_input.add_to_form(form)
         form.addRow("Head Injury Description", self.head_injury_description_input)
-        form.addRow("", self.genetic_abnormalities_checkbox)
+        self.genetic_abnormalities_input.add_to_form(form)
         form.addRow("Genetic Abnormalities Description", self.genetic_abnormalities_description_input)
-        form.addRow("", self.seizure_epileptic_attack_checkbox)
+        self.seizure_epileptic_attack_input.add_to_form(form)
         form.addRow("Gestational Age", self.gestational_age_input)
         form.addRow("Birthweight", self.birthweight_input)
         form.addRow("Birthlength", self.birthlength_input)
-        form.addRow("", self.pregnancy_complications_checkbox)
+        self.pregnancy_complications_input.add_to_form(form)
         form.addRow("Complications Description", self.pregnancy_complications_description_input)
 
         save_button = QPushButton("Save Medical History")
         save_button.setObjectName("PrimaryButton")
-        save_button.setCursor(Qt.PointingHandCursor)
+        save_button.setCursor(Qt.CursorShape.PointingHandCursor)
         save_button.clicked.connect(self.save)
 
         layout.addLayout(form)
@@ -81,23 +81,19 @@ class MedicalHistoryView(QWidget):
             return
 
         self.general_health_input.setPlainText(data.get("general_health") or "")
-        self.seen_neurologist_checkbox.setChecked(bool(data.get("seen_neurologist")))
+        self.seen_neurologist_input.set_value(data.get("seen_neurologist"))
         self.neurologist_description_input.setPlainText(data.get("neurologist_description") or "")
-        self.head_injury_checkbox.setChecked(bool(data.get("head_injury")))
+        self.head_injury_input.set_value(data.get("head_injury"))
         self.head_injury_description_input.setPlainText(data.get("head_injury_description") or "")
-        self.genetic_abnormalities_checkbox.setChecked(bool(data.get("genetic_abnormalities")))
+        self.genetic_abnormalities_input.set_value(data.get("genetic_abnormalities"))
         self.genetic_abnormalities_description_input.setPlainText(
             data.get("genetic_abnormalities_description") or ""
         )
-        self.seizure_epileptic_attack_checkbox.setChecked(
-            bool(data.get("seizure_epileptic_attack"))
-        )
+        self.seizure_epileptic_attack_input.set_value(data.get("seizure_epileptic_attack"))
         self.gestational_age_input.setText(data.get("gestational_age") or "")
         self.birthweight_input.setText(data.get("birthweight") or "")
         self.birthlength_input.setText(data.get("birthlength") or "")
-        self.pregnancy_complications_checkbox.setChecked(
-            bool(data.get("pregnancy_complications"))
-        )
+        self.pregnancy_complications_input.set_value(data.get("pregnancy_complications"))
         self.pregnancy_complications_description_input.setPlainText(
             data.get("pregnancy_complications_description") or ""
         )
@@ -105,25 +101,26 @@ class MedicalHistoryView(QWidget):
     def collect_data(self) -> dict:
         return {
             "general_health": self.general_health_input.toPlainText().strip(),
-            "seen_neurologist": int(self.seen_neurologist_checkbox.isChecked()),
+            "seen_neurologist": self.seen_neurologist_input.value(),
             "neurologist_description": self.neurologist_description_input.toPlainText().strip(),
-            "head_injury": int(self.head_injury_checkbox.isChecked()),
+            "head_injury": self.head_injury_input.value(),
             "head_injury_description": self.head_injury_description_input.toPlainText().strip(),
-            "genetic_abnormalities": int(self.genetic_abnormalities_checkbox.isChecked()),
+            "genetic_abnormalities": self.genetic_abnormalities_input.value(),
             "genetic_abnormalities_description": (
                 self.genetic_abnormalities_description_input.toPlainText().strip()
             ),
-            "seizure_epileptic_attack": int(self.seizure_epileptic_attack_checkbox.isChecked()),
+            "seizure_epileptic_attack": self.seizure_epileptic_attack_input.value(),
             "gestational_age": self.gestational_age_input.text().strip(),
             "birthweight": self.birthweight_input.text().strip(),
             "birthlength": self.birthlength_input.text().strip(),
-            "pregnancy_complications": int(self.pregnancy_complications_checkbox.isChecked()),
+            "pregnancy_complications": self.pregnancy_complications_input.value(),
             "pregnancy_complications_description": (
                 self.pregnancy_complications_description_input.toPlainText().strip()
             ),
         }
 
-    def save(self) -> bool:
+    def save(self, *, show_confirmation=True) -> bool:
         save_medical_history(self.patient_id, self.collect_data())
-        QMessageBox.information(self, "Saved", "Medical history saved successfully.")
+        if show_confirmation:
+            QMessageBox.information(self, "Saved", "Medical history saved successfully.")
         return True

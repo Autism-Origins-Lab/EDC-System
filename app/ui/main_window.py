@@ -1,4 +1,4 @@
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.services.backups import get_backup_manager
 from app.services.preferences import load_preferences
 from app.ui.components.sidebar import Sidebar
 from app.ui.components.topbar import TopBar
@@ -80,12 +81,23 @@ class MainWindow(QMainWindow):
 
         self.topbar.menu_clicked.connect(self.toggle_sidebar)
         self.settings_view.preferences_saved.connect(self.apply_preferences)
+        self.settings_view.database_restored.connect(self.patients_view.load_patients)
+        self.backup_status_timer = QTimer(self)
+        self.backup_status_timer.timeout.connect(self.update_backup_status)
+        self.backup_status_timer.start(1000)
 
         root_layout.addWidget(self.topbar)
         root_layout.addWidget(body, 1)
         self.setCentralWidget(root)
 
         self.sidebar.select_section(self.preferences["startup_page"])
+
+    def update_backup_status(self) -> None:
+        error = get_backup_manager().last_error
+        self.statusBar().showMessage(
+            f"Changes saved. Automatic backup failed: {error} Open Settings to retry."
+            if error else ""
+        )
 
     def toggle_sidebar(self) -> None:
         collapsed_width = 0
