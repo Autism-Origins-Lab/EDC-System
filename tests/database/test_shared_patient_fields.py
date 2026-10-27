@@ -52,7 +52,9 @@ def test_version_six_migration_preserves_legacy_identity_and_risk(
     monkeypatch, tmp_path
 ):
     monkeypatch.setattr(config, "DATABASE_PATH", tmp_path / "legacy.db")
-    old_schema = SCHEMA_SQL.replace("    high_familial_risk INTEGER,\n", "").replace(
+    old_schema = SCHEMA_SQL.replace(
+        "    high_familial_risk INTEGER,\n", "    atRisk BOOLEAN,\n"
+    ).replace(
         "    low_familial_risk INTEGER,\n",
         "",
     )

@@ -109,4 +109,5 @@ class PatientOverviewView(QWidget):
                 )
                 return False
         update_patient(self.patient_id, data)
+        QMessageBox.information(self, "Saved", "Patient overview saved successfully.")
         return True

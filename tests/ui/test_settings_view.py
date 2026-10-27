@@ -48,10 +48,12 @@ def test_settings_combo_uses_transparent_dropdown_and_gray_chevron(qtbot):
     assert "image: none" in stylesheet
 
     image = combo.grab().toImage()
+    # On scaled displays (e.g. 150%) the grabbed image is in physical pixels.
+    scale = image.devicePixelRatio()
     expected_arrow = QColor("#9ca3af")
     center_y = combo.height() // 2
     arrow_pixels = (
-        QColor(image.pixel(x, y))
+        QColor(image.pixel(int(x * scale), int(y * scale)))
         for x in range(combo.width() - 20, combo.width() - 11)
         for y in range(center_y - 5, center_y + 6)
     )

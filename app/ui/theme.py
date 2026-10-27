@@ -467,6 +467,10 @@ QPushButton:hover {
 QPushButton:pressed {
     background-color: #F1F5F9;
 }
+QPushButton:checked {
+    background-color: #B4B4B8;
+    border: 1px solid #848487;
+}
 """
 
 # PatientsView: donut caption, eligibility label, and legend labels.
@@ -541,6 +545,38 @@ QScrollBar::handle:vertical:hover {
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+"""
+
+
+# PatientsView: page-level scroll area wrapping the dashboard and table.
+PATIENTS_PAGE_SCROLL_STYLESHEET = """
+QScrollArea#PatientsScroll,
+QWidget#PatientsContent {
+    background: transparent;
+    border: none;
+}
+
+QScrollArea#PatientsScroll QScrollBar:vertical {
+    border: none;
+    background: transparent;
+    width: 8px;
+    border-radius: 4px;
+}
+
+QScrollArea#PatientsScroll QScrollBar::handle:vertical {
+    background: #CBD5E0;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QScrollArea#PatientsScroll QScrollBar::handle:vertical:hover {
+    background: #A0AEC0;
+}
+
+QScrollArea#PatientsScroll QScrollBar::add-line:vertical,
+QScrollArea#PatientsScroll QScrollBar::sub-line:vertical {
     height: 0px;
 }
 """
