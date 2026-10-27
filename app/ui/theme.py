@@ -566,6 +566,11 @@ PATIENT_DETAIL_MARK_COMPLETE_STYLESHEET = _patient_completion_button_stylesheet(
 
 # SettingsView: option labels, checkboxes, combo boxes, and popup lists.
 SETTINGS_STYLESHEET = """
+QWidget#SettingsView QWidget#SettingsContent {
+    background-color: #f8fafc;
+}
+QWidget#SettingsView QLabel { color: #1f2937; }
+QWidget#SettingsView QLabel#BackupTitle { font-size: 15px; font-weight: 600; }
 QWidget#SettingsView QLabel#SettingsOptionLabel,
 QWidget#SettingsView QCheckBox#SettingsOptionCheckBox {
     color: #1f2937;
@@ -652,6 +657,10 @@ QMessageBox QLabel { color: #e5e7eb; }
 """
 
 DARK_SETTINGS_STYLESHEET = """
+QWidget#SettingsView QWidget#SettingsContent {
+    background-color: #111827;
+}
+QWidget#SettingsView QLabel { color: #e5e7eb; }
 QWidget#SettingsView QLabel#SettingsOptionLabel,
 QWidget#SettingsView QCheckBox#SettingsOptionCheckBox {
     color: #e5e7eb;

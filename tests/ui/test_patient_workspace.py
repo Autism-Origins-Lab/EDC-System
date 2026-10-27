@@ -7,6 +7,8 @@ from app.database.repositories.forms import (
     get_mullen_assessment,
     get_screening_questionnaire,
     get_telephone_screening,
+    save_medical_history,
+    save_mullen_assessment,
     save_telephone_screening,
 )
 from app.database.repositories.patients import (
@@ -281,6 +283,210 @@ def test_editing_completed_record_requires_review_again(workspace):
     advance_to_review(view)
     assert view.complete_form()
     assert get_patient(view.patient_id)["form_status"] == "Complete"
+
+
+def test_failed_status_reset_rolls_back_edited_answers(workspace):
+    view = workspace
+    update_patient(view.patient_id, {"child_name": "Original name"})
+    complete_patient_form(view.patient_id, "Jordan Staff")
+    view._show_step(0)
+    view.refresh_data()
+    with get_connection() as connection:
+        connection.execute(
+            "CREATE TRIGGER reject_pending BEFORE UPDATE OF form_status ON patients "
+            "WHEN NEW.form_status = 'Pending' "
+            "BEGIN SELECT RAISE(ABORT, 'simulated status failure'); END"
+        )
+
+    view.overview_view.child_name_input.setText("Corrected name")
+    assert not view.save_and_continue()
+    patient = get_patient(view.patient_id)
+    assert patient["child_name"] == "Original name"
+    assert patient["form_status"] == "Complete"
+    assert view.overview_view.child_name_input.text() == "Corrected name"
+    assert view.has_unsaved_changes()
+    assert view.pages.currentIndex() == 0
+    assert view.warnings == ["simulated status failure"]
+
+    with get_connection() as connection:
+        connection.execute("DROP TRIGGER reject_pending")
+    assert view.save_and_continue()
+    patient = get_patient(view.patient_id)
+    assert patient["child_name"] == "Corrected name"
+    assert patient["form_status"] == "Pending"
+
+
+@pytest.mark.parametrize("index", range(1, 9))
+def test_status_failure_rolls_back_every_section_and_allows_retry(
+    workspace, index, tmp_path,
+):
+    view = workspace
+    update_patient(view.patient_id, {"date_of_birth": "2025-01-01"})
+    advance_to_review(view)
+    save_mullen_assessment(
+        view.patient_id,
+        {"gross_motor": {"raw_score": 0}},
+        context={
+            "assessment_date": "2025-03-01",
+            "scoring_date_of_birth": "2025-01-01",
+            "confidence_level": 90,
+            "age_calculation": "calendar",
+        },
+    )
+    complete_patient_form(view.patient_id, "Original Screener")
+    view._show_step(index)
+    view.refresh_data()
+    page = view.views[index]
+    if index == 1:
+        page.birthweight_input.setText("3.2 kg")
+        page.high_risk_checkbox.setChecked(True)
+    elif index == 2:
+        page.child_name_input.setText("Changed shared name")
+        page.parent_name_input.setText("Changed parent")
+    elif index == 3:
+        page.general_health_input.setPlainText("Changed health")
+        page.seen_neurologist_input.set_value(0)
+    elif index == 4:
+        page.parent_autism_input.set_value(1)
+    elif index == 5:
+        for procedure, fields in page.rows.items():
+            fields["room"].setText(f"Changed {procedure} room")
+    elif index == 6:
+        page.confidence_combo.setCurrentIndex(page.confidence_combo.findData(95))
+        page.raw_score_inputs[0].setText("1")
+    elif index == 7:
+        page.file_path_input.setText(str(tmp_path / "recording.mp4"))
+        page.title_input.setText("New recording")
+    else:
+        page.screener_input.setText("Changed Screener")
+
+    tables = (
+        "patients",
+        "telephone_screenings",
+        "screening_questionnaires",
+        "medical_histories",
+        "family_medical_histories",
+        "procedure_schedules",
+        "mullen_assessments",
+        "mullen_scores",
+        "patients_video",
+    )
+
+    def snapshot():
+        with get_connection() as connection:
+            return {
+                table: [
+                    tuple(row)
+                    for row in connection.execute(f"SELECT * FROM {table} ORDER BY id")
+                ]
+                for table in tables
+            }
+
+    original = snapshot()
+    draft = view._input_state(page)
+    with get_connection() as connection:
+        connection.execute(
+            "CREATE TRIGGER reject_pending BEFORE UPDATE OF form_status ON patients "
+            "WHEN NEW.form_status = 'Pending' "
+            "BEGIN SELECT RAISE(ABORT, 'simulated status failure'); END"
+        )
+    # Review edits use this path when saving before closing the workspace.
+    save = (
+        view.save_current_section
+        if index == view.review_index
+        else view.save_and_continue
+    )
+    assert not save()
+    assert snapshot() == original
+    assert view.is_complete()
+    assert view._input_state(page) == draft
+    assert view.has_unsaved_changes()
+    assert view.pages.currentIndex() == index
+    assert view.warnings == ["simulated status failure"]
+    if index == 7:
+        assert page.table.rowCount() == 0
+
+    with get_connection() as connection:
+        connection.execute("DROP TRIGGER reject_pending")
+    assert save()
+    assert get_patient(view.patient_id)["form_status"] == "Pending"
+    assert not view.has_unsaved_changes()
+    if index == 7:
+        assert len(list_patient_videos(view.patient_id)) == 1
+        assert page.table.rowCount() == 1
+
+
+def test_save_uses_current_database_completion_status(workspace):
+    view = workspace
+    assert not view.is_complete()
+    complete_patient_form(view.patient_id, "Jordan Staff")
+    view.overview_view.child_name_input.setText("Edited since completion")
+    assert view.save_and_continue()
+    assert get_patient(view.patient_id)["form_status"] == "Pending"
+
+
+def test_unchanged_save_preserves_completion(workspace):
+    view = workspace
+    complete_patient_form(view.patient_id, "Jordan Staff")
+    view._show_step(0)
+    view.refresh_data()
+    assert view.save_and_continue()
+    assert get_patient(view.patient_id)["form_status"] == "Complete"
+
+
+def test_unsuccessful_section_save_discards_any_writes(workspace, monkeypatch):
+    view = workspace
+    complete_patient_form(view.patient_id, "Jordan Staff")
+    view._show_step(3)
+    view.refresh_data()
+    view.medical_history_view.general_health_input.setPlainText("Keep draft")
+
+    def rejected_save(**kwargs):
+        save_medical_history(view.patient_id, {"general_health": "Must roll back"})
+        return False
+
+    monkeypatch.setattr(view.medical_history_view, "save", rejected_save)
+    assert not view.save_and_continue()
+    assert get_patient(view.patient_id)["form_status"] == "Complete"
+    with get_connection() as connection:
+        assert connection.execute("SELECT * FROM medical_histories").fetchall() == []
+    assert view.medical_history_view.general_health_input.toPlainText() == "Keep draft"
+    assert view.has_unsaved_changes()
+    assert view.pages.currentIndex() == 3
+
+
+@pytest.mark.parametrize("index", [0, 8])
+def test_close_save_failure_keeps_completed_record_and_dialog_open(
+    workspace, monkeypatch, index,
+):
+    view = workspace
+    complete_patient_form(view.patient_id, "Original Screener")
+    view._show_step(index)
+    view.refresh_data()
+    field = (
+        view.overview_view.child_name_input
+        if index == 0
+        else view.summary_view.screener_input
+    )
+    field.setText("Keep draft")
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Save
+    )
+    with get_connection() as connection:
+        connection.execute(
+            "CREATE TRIGGER reject_pending BEFORE UPDATE OF form_status ON patients "
+            "WHEN NEW.form_status = 'Pending' "
+            "BEGIN SELECT RAISE(ABORT, 'simulated status failure'); END"
+        )
+    view.close()
+    assert view.isVisible()
+    assert field.text() == "Keep draft"
+    assert view.has_unsaved_changes()
+    patient = get_patient(view.patient_id)
+    assert patient["child_name"] is None
+    assert patient["form_status"] == "Complete"
+    assert get_telephone_screening(view.patient_id)["screener"] == "Original Screener"
+    assert view.warnings == ["simulated status failure"]
 
 
 def test_database_failure_keeps_edits_and_current_step(workspace):

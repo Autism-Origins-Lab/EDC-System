@@ -2,7 +2,7 @@ import sqlite3
 
 import pandas as pd
 
-from app.database.connection import get_connection
+from app.database.connection import database_maintenance, get_connection
 
 IDENTITY_FIELDS = {"child_name", "date_of_birth", "sex", "race"}
 PATIENT_FIELDS = {"subject_id", *IDENTITY_FIELDS, "form_status", "risk"}
@@ -100,16 +100,19 @@ def get_patient(patient_id: int) -> dict | None:
 
 def delete_patient(patient_id: int) -> None:
     """Delete a patient and all dependent records via foreign-key cascades."""
-    with get_connection() as connection:
-        cursor = connection.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
-        if not cursor.rowcount:
-            raise ValueError("Patient does not exist.")
+    from app.services.backups import backup_before_change
+
+    with database_maintenance():
+        backup_before_change("before-delete")
+        with get_connection() as connection:
+            cursor = connection.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
+            if not cursor.rowcount:
+                raise ValueError("Patient does not exist.")
 
 
 def update_patient(patient_id: int, data: dict) -> None:
     with get_connection() as connection:
         _update_patient(connection, patient_id, data)
-
 
 def _update_patient(connection: sqlite3.Connection, patient_id: int, data: dict) -> None:
     """Update shared fields and their legacy form copies in the same transaction."""
@@ -216,19 +219,17 @@ def complete_patient_form(patient_id: int, screener: str) -> None:
         )
 
 
-def update_patient_form(patient_id: int, status: str) -> None: #database method that marks form as complete --> ready export
-  #primary column is id. Direct update w cursor.rowcount --> check existence better
-  with get_connection() as connection:
+def update_patient_form(patient_id: int, status: str) -> None:
+    with get_connection() as connection:
         cursor = connection.execute(
-                """
-                UPDATE patients
-                SET form_status = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-                """,
-                (status, patient_id),
-            )
-        connection.commit()        
+            """
+            UPDATE patients
+            SET form_status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (status, patient_id),
+        )
         if cursor.rowcount == 0:
             raise ValueError(f"There is no patient with id {patient_id}.")
 
@@ -262,7 +263,6 @@ def update_patient_eligibility(patient_id: int, eligibility_status: str) -> None
                         """,
                        (patient_id, eligibility_status),
                     )
-        connection.commit()    
 
 def export_patients_to_csv(file_path: str, patients: list[dict] | None = None) -> None:
     patients_to_export = patients if patients is not None else list_patients()

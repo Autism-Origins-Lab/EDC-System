@@ -1,6 +1,6 @@
 import sqlite3
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -19,12 +19,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.database.connection import transaction
 from app.database.repositories.patients import (
     complete_patient_form,
     delete_patient,
     get_patient,
     update_patient_form,
 )
+from app.services.backups import BackupError
 from app.services.preferences import load_preferences
 from app.ui.forms.family_medical_history_view import FamilyMedicalHistoryView
 from app.ui.forms.medical_history_view import MedicalHistoryView
@@ -452,23 +454,35 @@ class PatientDetailView(QDialog):
         if not callable(saver):
             return True
 
-        changed = self._input_state(view) != self._saved_states[self._current_index]
+        draft = self._input_state(view)
+        changed = draft != self._saved_states[self._current_index]
+        saved = False
         try:
-            if view is self.mullen_view and not view.has_answers():
-                saved = True
-            else:
-                saved = saver(show_confirmation=False)
-            if saved is not False and changed and self.is_complete():
-                update_patient_form(self.patient_id, "Pending")
+            # Keep section writes and completion invalidation under one commit.
+            # Refresh signals must not expose uncommitted patient data to the UI.
+            with transaction() as connection, QSignalBlocker(view):
+                if view is self.mullen_view and not view.has_answers():
+                    result = True
+                elif view is self.video_references_view:
+                    result = saver(show_confirmation=False, clear_after_save=False)
+                else:
+                    result = saver(show_confirmation=False)
+                if result is False:
+                    connection.rollback()
+                elif changed:
+                    patient = get_patient(self.patient_id) or {}
+                    if patient.get("form_status") == "Complete":
+                        update_patient_form(self.patient_id, "Pending")
+            saved = result is not False
         except (ValueError, sqlite3.Error, OSError) as exc:
             QMessageBox.warning(self, "Unable to save", str(exc))
-            self._update_save_status()
+
+        if not saved:
+            self._restore_input_state(view, draft)
             return False
 
-        if saved is False:
-            self._update_save_status()
-            return False
-
+        if view is self.video_references_view:
+            view.clear_saved_reference()
         self._reload_view(self._current_index)
         self.refresh_data()
         self._update_save_status()
@@ -562,7 +576,11 @@ class PatientDetailView(QDialog):
             )
             if choice != QMessageBox.StandardButton.Yes:
                 return
-        delete_patient(self.patient_id)
+        try:
+            delete_patient(self.patient_id)
+        except (BackupError, ValueError, sqlite3.Error, OSError) as exc:
+            QMessageBox.warning(self, "Unable to delete patient", str(exc))
+            return
         self.patient_deleted.emit(self.patient_id)
         self.accept()
 
