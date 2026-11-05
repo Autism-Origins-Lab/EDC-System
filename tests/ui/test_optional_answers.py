@@ -107,13 +107,13 @@ def test_user_can_choose_no_then_clear_an_answer(
     qtbot.addWidget(view)
     field, name = next(iter(fields.items()))
     control = getattr(view, name)
-    qtbot.keyClick(control, Qt.Key.Key_Down)
+    qtbot.mouseClick(control._buttons[1], Qt.MouseButton.LeftButton)
     assert control.currentText() == "Yes"
-    qtbot.keyClick(control, Qt.Key.Key_Down)
+    qtbot.mouseClick(control._buttons[0], Qt.MouseButton.LeftButton)
     assert control.currentText() == "No"
     assert view.save(show_confirmation=False)
     assert get(patient_id)[field] == 0
-    qtbot.keyClick(control, Qt.Key.Key_Home)
+    qtbot.mouseClick(control._buttons[None], Qt.MouseButton.LeftButton)
     assert control.currentText() == "Not answered"
     assert view.save(show_confirmation=False)
     assert get(patient_id)[field] is None

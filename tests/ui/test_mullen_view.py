@@ -33,7 +33,7 @@ def workspace(temp_database, qtbot, monkeypatch):
 
 
 def configure(page):
-    page.assessment_date_input.setText("2025-03-01")
+    page.assessment_date_input.setText("03-01-2025")
     page.confidence_combo.setCurrentIndex(page.confidence_combo.findData(90))
     page.age_calculation_combo.setCurrentIndex(
         page.age_calculation_combo.findData("calendar")
@@ -67,9 +67,9 @@ def test_context_changes_recalculate_and_clear_invalid_results(workspace):
     page.confidence_combo.setCurrentIndex(page.confidence_combo.findData(95))
     assert page.error_inputs[0].text() == "11"
     assert page.t_score_inputs[0].text() == "37"
-    page.assessment_date_input.setText("2025-04-01")
+    page.assessment_date_input.setText("04-01-2025")
     assert page.t_score_inputs[0].text() == "31"
-    page.assessment_date_input.setText("2025-06-01")
+    page.assessment_date_input.setText("06-01-2025")
     assert page.t_score_inputs[0].text() == ""
     assert "No handbook age band" in page.scoring_status.text()
     assert not workspace.save_current_section()
@@ -105,7 +105,7 @@ def test_save_reopen_and_discard_preserve_scores_and_context(
         "age_calculation": "calendar",
     }
     assert get_mullen_assessment(workspace.patient_id)["gross_motor"]["t_score"] == 37
-    page.assessment_date_input.setText("2025-04-01")
+    page.assessment_date_input.setText("04-01-2025")
     page.confidence_combo.setCurrentIndex(page.confidence_combo.findData(95))
     page.raw_score_inputs[0].setText("5")
     monkeypatch.setattr(
@@ -117,7 +117,7 @@ def test_save_reopen_and_discard_preserve_scores_and_context(
     reopened = PatientDetailView(workspace.patient_id)
     qtbot.addWidget(reopened)
     assert reopened.mullen_view.t_score_inputs[0].text() == "37"
-    assert reopened.mullen_view.assessment_date_input.text() == "2025-03-01"
+    assert reopened.mullen_view.assessment_date_input.text() == "03-01-2025"
     assert reopened.mullen_view.confidence_combo.currentData() == 90
     assert reopened.mullen_view.age_calculation_combo.currentData() == "calendar"
 
@@ -128,7 +128,7 @@ def test_failed_save_keeps_previous_database_values(workspace):
     page.raw_score_inputs[0].setText("3")
     assert workspace.save_current_section()
     original = get_mullen_assessment(workspace.patient_id)
-    page.assessment_date_input.setText("2024-12-31")
+    page.assessment_date_input.setText("12-31-2024")
     assert not workspace.save_current_section()
     assert "cannot precede" in page.scoring_status.text()
     assert get_mullen_assessment(workspace.patient_id) == original
@@ -146,11 +146,11 @@ def test_saved_dob_is_preserved_until_overview_dob_is_requested(workspace):
     assert workspace.save_current_section()
     update_patient(workspace.patient_id, {"date_of_birth": "2025-02-01"})
     workspace._reload_view(6)
-    assert page.date_of_birth_input.text() == "2025-01-01"
+    assert page.date_of_birth_input.text() == "01-01-2025"
     assert page.t_score_inputs[0].text() == "37"
     assert "Overview DOB differs" in page.scoring_status.text()
     page.use_overview_dob_button.click()
-    assert page.date_of_birth_input.text() == "2025-02-01"
+    assert page.date_of_birth_input.text() == "02-01-2025"
     assert page.t_score_inputs[0].text() == "48"
     assert workspace.has_unsaved_changes()
     assert workspace.save_current_section()
@@ -178,16 +178,15 @@ def test_missing_required_context_blocks_save(workspace, missing):
     assert workspace.warnings
 
 
-def test_date_format_preference_is_respected(temp_database, qtbot, monkeypatch):
-    prefs = {**DEFAULT_PREFERENCES, "date_format": "MM/DD/YYYY"}
-    monkeypatch.setattr(mullen_view, "load_preferences", lambda: prefs)
+def test_dates_are_typed_as_digits_only(temp_database, qtbot, monkeypatch):
     monkeypatch.setattr(QMessageBox, "information", lambda *args: None)
     patient_id = create_patient("MULLEN-DATE")
     update_patient(patient_id, {"date_of_birth": "2025-01-01"})
     page = mullen_view.MullenView(patient_id)
     qtbot.addWidget(page)
-    assert page.date_of_birth_input.text() == "01/01/2025"
-    page.assessment_date_input.setText("03/01/2025")
+    assert page.date_of_birth_input.text() == "01-01-2025"
+    qtbot.keyClicks(page.assessment_date_input, "03/0a1-2025")
+    assert page.assessment_date_input.text() == "03-01-2025"
     page.confidence_combo.setCurrentIndex(page.confidence_combo.findData(90))
     page.age_calculation_combo.setCurrentIndex(
         page.age_calculation_combo.findData("calendar")

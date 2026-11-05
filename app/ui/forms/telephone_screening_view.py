@@ -14,15 +14,15 @@ from app.database.repositories.forms import (
     get_telephone_screening,
     save_telephone_screening,
 )
-from app.services.preferences import format_date, load_preferences, parse_date
+from app.services.preferences import DATE_FORMAT, format_date, parse_date
+from app.ui.components.date_input import DateInput
 
 
 class TelephoneScreeningView(QWidget):
     screening_saved = Signal()
-    def __init__(self, patient_id: int, preferences: dict | None = None):
+    def __init__(self, patient_id: int):
         super().__init__()
         self.patient_id = patient_id
-        self.date_format = (preferences or load_preferences())["date_format"]
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
@@ -30,10 +30,8 @@ class TelephoneScreeningView(QWidget):
 
         self.form = QFormLayout()
 
-        self.screening_date_input = QLineEdit()
-        self.appointment_date_input = QLineEdit()
-        self.screening_date_input.setPlaceholderText(self.date_format)
-        self.appointment_date_input.setPlaceholderText(self.date_format)
+        self.screening_date_input = DateInput()
+        self.appointment_date_input = DateInput()
 
         self.eligibility_comment_input = QLineEdit()
         self.eligibility_comment_input.setPlaceholderText("Enter reason")
@@ -54,8 +52,7 @@ class TelephoneScreeningView(QWidget):
             lambda checked: self.high_risk_checkbox.setChecked(False) if checked else None
         )
 
-        self.schedule_date_input = QLineEdit()
-        self.schedule_date_input.setPlaceholderText(self.date_format)
+        self.schedule_date_input = DateInput()
         self.birthweight_input = QLineEdit()
         self.gestational_input = QLineEdit()
 
@@ -97,20 +94,14 @@ class TelephoneScreeningView(QWidget):
         if not data:
             return
 
-        self.screening_date_input.setText(
-            format_date(data.get("screening_date"), self.date_format)
-        )
-        self.appointment_date_input.setText(
-            format_date(data.get("appointment_date"), self.date_format)
-        )
+        self.screening_date_input.setText(format_date(data.get("screening_date")))
+        self.appointment_date_input.setText(format_date(data.get("appointment_date")))
         self.eligibility_combo.setCurrentText(data.get("eligibility") or "Not evaluated")
         self.eligibility_comment_input.setText(data.get("eligibility_comment") or "")
         self.update_comment_visibility(self.eligibility_combo.currentText())
         self.high_risk_checkbox.setChecked(bool(data.get("high_familial_risk")))
         self.low_risk_checkbox.setChecked(bool(data.get("low_familial_risk")))
-        self.schedule_date_input.setText(
-            format_date(data.get("schedule_date"), self.date_format)
-        )
+        self.schedule_date_input.setText(format_date(data.get("schedule_date")))
         self.birthweight_input.setText(data.get("birthweight") or "")
         self.gestational_input.setText(data.get("gestational") or "")
 
@@ -162,11 +153,9 @@ class TelephoneScreeningView(QWidget):
                 ("schedule_date", "schedule date"),
             ):
                 try:
-                    data[field_name] = parse_date(data[field_name], self.date_format)
+                    data[field_name] = parse_date(data[field_name])
                 except ValueError as exc:
-                    raise ValueError(
-                        f"Enter {label} as {self.date_format}."
-                    ) from exc
+                    raise ValueError(f"Enter {label} as {DATE_FORMAT}.") from exc
             save_telephone_screening(self.patient_id, data)
         except ValueError as exc:
             QMessageBox.warning(self, "Unable to save", str(exc))

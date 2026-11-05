@@ -49,15 +49,18 @@ def advance_to_review(view):
         assert view.save_and_continue(), view.warnings
 
 
-def test_progress_is_read_only_and_save_advances_after_persisting(workspace, qtbot):
+def test_progress_steps_jump_and_save_advances_after_persisting(workspace, qtbot):
     view = workspace
     assert not view.back_button.isEnabled()
     assert view.save_button.text() == "Save and Continue"
     assert not view.progress.findChildren(QPushButton)
+    # Any step opens directly when the current section has nothing unsaved.
     qtbot.mouseClick(view.progress.steps[4], Qt.MouseButton.LeftButton)
+    assert view.pages.currentIndex() == 4
+    qtbot.mouseClick(view.progress.steps[0], Qt.MouseButton.LeftButton)
     assert view.pages.currentIndex() == 0
     view.overview_view.child_name_input.setText("Avery Example")
-    view.overview_view.date_of_birth_input.setText("2026-08-20")
+    view.overview_view.date_of_birth_input.setText("08-20-2026")
     view.overview_view.high_risk_checkbox.click()
     qtbot.mouseClick(view.save_button, Qt.MouseButton.LeftButton)
     assert view.pages.currentIndex() == 1
@@ -90,12 +93,12 @@ def test_back_preserves_drafts_and_shared_fields_refresh(workspace):
 
 def test_invalid_input_blocks_advancement(workspace):
     view = workspace
-    view.overview_view.date_of_birth_input.setText("2026-02-30")
+    view.overview_view.date_of_birth_input.setText("02-30-2026")
     assert not view.save_and_continue()
     assert view.pages.currentIndex() == 0
     assert view.progress.steps[1].property("stepState") == "upcoming"
     assert view.has_unsaved_changes()
-    assert view.warnings == ["Enter date of birth as YYYY-MM-DD."]
+    assert view.warnings == ["Enter date of birth as MM-DD-YYYY."]
     assert get_patient(view.patient_id)["date_of_birth"] is None
 
 
@@ -165,7 +168,7 @@ def test_save_and_continue_saves_each_section(workspace, index, tmp_path):
     elif index == 6:
         update_patient(view.patient_id, {"date_of_birth": "2025-01-01"})
         page.use_overview_dob()
-        page.assessment_date_input.setText("2025-03-01")
+        page.assessment_date_input.setText("03-01-2025")
         page.confidence_combo.setCurrentIndex(page.confidence_combo.findData(90))
         page.age_calculation_combo.setCurrentIndex(
             page.age_calculation_combo.findData("calendar")
@@ -191,10 +194,11 @@ def test_save_and_continue_saves_each_section(workspace, index, tmp_path):
         assert view._input_state(page) == view._saved_states[index]
 
 
-def test_empty_optional_sections_reach_summary_without_inventing_values(workspace):
+def test_empty_optional_sections_reach_summary_without_inventing_values(workspace, qtbot):
     view = workspace
     advance_to_review(view)
-    assert view.save_button.text() == "Mark as Complete"
+    # The button briefly reads "Saved successfully" before showing its label.
+    qtbot.waitUntil(lambda: view.save_button.text() == "Mark as Complete", timeout=3000)
     assert not view.save_button.isEnabled()
     assert get_mullen_assessment(view.patient_id) == {}
     assert list_patient_videos(view.patient_id) == []
@@ -218,7 +222,7 @@ def test_empty_optional_sections_reach_summary_without_inventing_values(workspac
 def test_summary_contains_answers_and_preserves_zero_and_no(workspace):
     view = workspace
     view.overview_view.child_name_input.setText("Avery <Example>")
-    view.overview_view.date_of_birth_input.setText("2025-01-01")
+    view.overview_view.date_of_birth_input.setText("01-01-2025")
     assert view.save_and_continue()
     save_telephone_screening(view.patient_id, {"screener": "Jordan Staff"})
     while view._current_index < 3:
@@ -227,7 +231,7 @@ def test_summary_contains_answers_and_preserves_zero_and_no(workspace):
     while view._current_index < 6:
         assert view.save_and_continue()
     mullen = view.mullen_view
-    mullen.assessment_date_input.setText("2025-03-01")
+    mullen.assessment_date_input.setText("03-01-2025")
     mullen.confidence_combo.setCurrentIndex(mullen.confidence_combo.findData(90))
     mullen.age_calculation_combo.setCurrentIndex(
         mullen.age_calculation_combo.findData("calendar")
@@ -627,7 +631,7 @@ def test_telephone_save_shows_automatic_ineligibility(workspace, qtbot):
 
 def test_overview_birthday_shows_automatic_ineligibility_on_telephone_tab(workspace, qtbot):
     view = workspace
-    view.overview_view.date_of_birth_input.setText("2007-09-27")
+    view.overview_view.date_of_birth_input.setText("09-27-2007")
     qtbot.mouseClick(view.save_button, Qt.MouseButton.LeftButton)
     view.navigation.setCurrentRow(1)
 
@@ -650,3 +654,12 @@ def test_telephone_form_button_shows_automatic_ineligibility(temp_database, qtbo
     assert form.save()
     assert form.eligibility_combo.currentText() == "No"
     assert form.eligibility_comment_input.text() == "Born at or before 37 weeks gestation."
+
+
+def test_jumping_away_from_unsaved_section_warns_and_stays(workspace, qtbot):
+    view = workspace
+    view.overview_view.race_input.setText("Unsaved")
+    qtbot.mouseClick(view.progress.steps[4], Qt.MouseButton.LeftButton)
+    assert view.pages.currentIndex() == 0
+    assert view.warnings == ["Save this section before switching to another."]
+    assert view.overview_view.race_input.text() == "Unsaved"

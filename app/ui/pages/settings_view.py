@@ -100,12 +100,8 @@ class SettingsView(QWidget):
 
         self.theme_combo = SettingsComboBox()
         self.theme_combo.addItems(["Light", "Dark"])
-        self.row_density_combo = SettingsComboBox()
-        self.row_density_combo.addItems(["Comfortable", "Compact"])
         self.start_page_combo = SettingsComboBox()
         self.start_page_combo.addItems(["Patients", "Imports", "Exports", "Settings"])
-        self.date_format_combo = SettingsComboBox()
-        self.date_format_combo.addItems(["MM/DD/YYYY", "YYYY-MM-DD"])
 
         self.confirm_delete_checkbox = QCheckBox(
             "Confirm before deleting patient records"
@@ -117,9 +113,7 @@ class SettingsView(QWidget):
         self.unsaved_changes_checkbox.setObjectName("SettingsOptionCheckBox")
 
         form.addRow(self._option_label("Theme"), self.theme_combo)
-        form.addRow(self._option_label("Table Row Density"), self.row_density_combo)
         form.addRow(self._option_label("Startup Page"), self.start_page_combo)
-        form.addRow(self._option_label("Date Format"), self.date_format_combo)
         form.addRow("", self.confirm_delete_checkbox)
         form.addRow("", self.unsaved_changes_checkbox)
 
@@ -210,9 +204,7 @@ class SettingsView(QWidget):
     def collect_preferences(self) -> dict:
         return {
             "theme": self.theme_combo.currentText(),
-            "row_density": self.row_density_combo.currentText(),
             "startup_page": self.start_page_combo.currentText(),
-            "date_format": self.date_format_combo.currentText(),
             "confirm_delete": self.confirm_delete_checkbox.isChecked(),
             "warn_unsaved_changes": self.unsaved_changes_checkbox.isChecked(),
             "backup_directory": self.preferences.get("backup_directory", ""),
@@ -228,9 +220,7 @@ class SettingsView(QWidget):
             )
         )
         self.theme_combo.setCurrentText(preferences["theme"])
-        self.row_density_combo.setCurrentText(preferences["row_density"])
         self.start_page_combo.setCurrentText(preferences["startup_page"])
-        self.date_format_combo.setCurrentText(preferences["date_format"])
         self.confirm_delete_checkbox.setChecked(preferences["confirm_delete"])
         self.unsaved_changes_checkbox.setChecked(preferences["warn_unsaved_changes"])
 

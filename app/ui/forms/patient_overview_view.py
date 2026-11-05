@@ -10,14 +10,14 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.repositories.patients import get_patient, update_patient
-from app.services.preferences import format_date, load_preferences, parse_date
+from app.services.preferences import DATE_FORMAT, format_date, parse_date
+from app.ui.components.date_input import DateInput
 
 
 class PatientOverviewView(QWidget):
-    def __init__(self, patient_id: int, preferences: dict | None = None):
+    def __init__(self, patient_id: int):
         super().__init__()
         self.patient_id = patient_id
-        self.date_format = (preferences or load_preferences())["date_format"]
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(20)
@@ -30,8 +30,7 @@ class PatientOverviewView(QWidget):
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.subject_id_input = QLineEdit()
         self.child_name_input = QLineEdit()
-        self.date_of_birth_input = QLineEdit()
-        self.date_of_birth_input.setPlaceholderText(self.date_format)
+        self.date_of_birth_input = DateInput()
         self.sex_combo = QComboBox()
         self.sex_combo.addItems(["", "Female", "Male", "Other", "Prefer not to answer"])
         self.race_input = QLineEdit()
@@ -68,9 +67,7 @@ class PatientOverviewView(QWidget):
         patient = get_patient(self.patient_id) or {}
         self.subject_id_input.setText(patient.get("subject_id") or "")
         self.child_name_input.setText(patient.get("child_name") or "")
-        self.date_of_birth_input.setText(
-            format_date(patient.get("date_of_birth"), self.date_format)
-        )
+        self.date_of_birth_input.setText(format_date(patient.get("date_of_birth")))
         sex = patient.get("sex") or ""
         if self.sex_combo.findText(sex) < 0:
             self.sex_combo.addItem(sex)
@@ -100,14 +97,15 @@ class PatientOverviewView(QWidget):
         birthday = data["date_of_birth"]
         if birthday:
             try:
-                data["date_of_birth"] = parse_date(birthday, self.date_format)
+                data["date_of_birth"] = parse_date(birthday)
             except ValueError:
                 QMessageBox.warning(
                     self,
                     "Unable to save",
-                    f"Enter date of birth as {self.date_format}.",
+                    f"Enter date of birth as {DATE_FORMAT}.",
                 )
                 return False
         update_patient(self.patient_id, data)
-        QMessageBox.information(self, "Saved", "Patient overview saved successfully.")
+        if show_confirmation:
+            QMessageBox.information(self, "Saved", "Patient overview saved successfully.")
         return True
