@@ -23,7 +23,8 @@ from app.database.repositories.forms import (
 )
 from app.database.repositories.patients import get_patient
 from app.services.mullen_scoring import MullenScoringError, auto_score, calculate_age
-from app.services.preferences import format_date, load_preferences, parse_date
+from app.services.preferences import DATE_FORMAT, format_date, load_preferences, parse_date
+from app.ui.components.date_input import DateInput
 from app.ui.theme import (
     DARK_MULLEN_STYLESHEET,
     MULLEN_SCALE_BACKGROUND_COLOR,
@@ -43,7 +44,6 @@ class MullenView(QWidget):
         self.patient_id = patient_id
         self._loading = False
         self.preferences = preferences or load_preferences()
-        self.date_format = self.preferences["date_format"]
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 28, 28, 24)
@@ -75,8 +75,7 @@ class MullenView(QWidget):
         dob_row.addWidget(self.use_overview_dob_button)
         context_form.addRow("Date of birth used", dob_row)
 
-        self.assessment_date_input = QLineEdit()
-        self.assessment_date_input.setPlaceholderText(self.date_format)
+        self.assessment_date_input = DateInput()
         context_form.addRow("Assessment date", self.assessment_date_input)
         self.confidence_combo = QComboBox()
         self.confidence_combo.addItem("Select confidence", None)
@@ -253,9 +252,7 @@ class MullenView(QWidget):
 
     def use_overview_dob(self) -> None:
         patient = get_patient(self.patient_id) or {}
-        self.date_of_birth_input.setText(
-            format_date(patient.get("date_of_birth"), self.date_format)
-        )
+        self.date_of_birth_input.setText(format_date(patient.get("date_of_birth")))
 
     def collect_context(self) -> dict:
         if not self.date_of_birth_input.text().strip():
@@ -263,11 +260,9 @@ class MullenView(QWidget):
                 "Save the date of birth in Overview, then choose Use Overview DOB."
             )
         if not self.assessment_date_input.text().strip():
-            raise MullenScoringError(
-                f"Enter the assessment date as {self.date_format}."
-            )
-        birthday = parse_date(self.date_of_birth_input.text(), self.date_format)
-        tested_on = parse_date(self.assessment_date_input.text(), self.date_format)
+            raise MullenScoringError(f"Enter the assessment date as {DATE_FORMAT}.")
+        birthday = parse_date(self.date_of_birth_input.text())
+        tested_on = parse_date(self.assessment_date_input.text())
         confidence = self.confidence_combo.currentData()
         convention = self.age_calculation_combo.currentData()
         if confidence is None:
@@ -376,10 +371,8 @@ class MullenView(QWidget):
             birthday = context.get("scoring_date_of_birth") or patient.get(
                 "date_of_birth"
             )
-            self.date_of_birth_input.setText(format_date(birthday, self.date_format))
-            self.assessment_date_input.setText(
-                format_date(context.get("assessment_date"), self.date_format)
-            )
+            self.date_of_birth_input.setText(format_date(birthday))
+            self.assessment_date_input.setText(format_date(context.get("assessment_date")))
             self.confidence_combo.setCurrentIndex(
                 max(0, self.confidence_combo.findData(context.get("confidence_level")))
             )

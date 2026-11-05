@@ -22,7 +22,7 @@ The application is a Python/PySide6 desktop app backed by a local SQLite databas
 - Section saving before advancing, drafts retained when going back, and save/discard/cancel prompts when closing with edits.
 - Final answer summary with blank answers displayed as N/A. Mark as Complete requires a screener name and is independent of eligibility. Saving edits to a completed record returns it to Pending for review.
 - Optional Yes/No questions default to Not answered and retain three distinct stored states: unanswered, Yes, and No. Existing saved Yes/No values are preserved; historical No values cannot be automatically identified as previously unanswered.
-- Persistent local settings for theme, table density, startup page, date display, and safety prompts.
+- Persistent local settings for theme, startup page, and safety prompts.
 - Patient deletion with cascading related-record cleanup and optional confirmation.
 - SQLite-backed save/load helpers for patient records and form data.
 - Versioned database migrations using SQLite `PRAGMA user_version`.

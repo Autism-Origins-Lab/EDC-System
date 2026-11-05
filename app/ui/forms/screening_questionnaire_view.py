@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QFormLayout,
     QLineEdit,
     QMessageBox,
@@ -14,15 +13,25 @@ from app.database.repositories.forms import (
     get_screening_questionnaire,
     save_screening_questionnaire,
 )
-from app.services.preferences import format_date, load_preferences, parse_date
+from app.services.preferences import DATE_FORMAT, format_date, parse_date
+from app.ui.components.contact_inputs import (
+    US_STATES,
+    ChoiceInput,
+    PhoneInput,
+    TimeOfDayInput,
+    digits_only,
+)
+from app.ui.components.date_input import DateInput
 from app.ui.components.yes_no_input import YesNoInput
+
+SEX_OPTIONS = [(sex, sex) for sex in ("Female", "Male", "Other", "Prefer not to answer")]
+ZIP_CODE_DIGITS = 5
 
 
 class ScreeningQuestionnaireView(QWidget):
-    def __init__(self, patient_id: int, preferences: dict | None = None):
+    def __init__(self, patient_id: int):
         super().__init__()
         self.patient_id = patient_id
-        self.date_format = (preferences or load_preferences())["date_format"]
 
         outer_layout = QVBoxLayout(self)
         scroll_area = QScrollArea()
@@ -33,64 +42,64 @@ class ScreeningQuestionnaireView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(14)
 
-        form = QFormLayout()
+
         self.parent_name_input = QLineEdit()
         self.child_name_input = QLineEdit()
-        self.date_of_birth_input = QLineEdit()
-        self.date_of_birth_input.setPlaceholderText(self.date_format)
-        self.age_input = QLineEdit()
-        self.sex_combo = QComboBox()
-        self.sex_combo.addItems(["", "Female", "Male", "Other", "Prefer not to answer"])
-        self.race_input = QLineEdit()
-        self.address_input = QLineEdit()
-        self.city_input = QLineEdit()
-        self.state_input = QLineEdit()
+        self.date_of_birth_input = DateInput()
+        self.sex_combo = ChoiceInput(SEX_OPTIONS)
+        self.state_input = ChoiceInput(US_STATES)
         self.zip_code_input = QLineEdit()
-        self.home_phone_input = QLineEdit()
-        self.work_phone_input = QLineEdit()
-        self.best_time_to_call_input = QLineEdit()
-        self.fax_input = QLineEdit()
-        self.email_input = QLineEdit()
-        self.mother_name_input = QLineEdit()
-        self.father_name_input = QLineEdit()
-        self.mother_age_input = QLineEdit()
-        self.father_age_input = QLineEdit()
+        self.zip_code_input.setValidator(digits_only(ZIP_CODE_DIGITS))
+        self.home_phone_input = PhoneInput()
+        self.work_phone_input = PhoneInput()
+        self.best_time_to_call_input = TimeOfDayInput()
         self.biological_mother_input = YesNoInput("Mother listed is biological mother")
-        self.biological_mother_name_input = QLineEdit()
         self.biological_father_input = YesNoInput("Father listed is biological father")
-        self.biological_father_name_input = QLineEdit()
         self.research_participation_input = YesNoInput("Family has participated in research")
-        self.research_study_input = QLineEdit()
-        self.research_study_when_input = QLineEdit()
-        self.research_study_where_input = QLineEdit()
 
-        form.addRow("Parent Name", self.parent_name_input)
-        form.addRow("Child Name", self.child_name_input)
-        form.addRow("Date of Birth", self.date_of_birth_input)
-        form.addRow("Age (months)", self.age_input)
-        form.addRow("Sex", self.sex_combo)
-        form.addRow("Race", self.race_input)
-        form.addRow("Address", self.address_input)
-        form.addRow("City", self.city_input)
-        form.addRow("State", self.state_input)
-        form.addRow("Zip Code", self.zip_code_input)
-        form.addRow("Home Phone", self.home_phone_input)
-        form.addRow("Work Phone", self.work_phone_input)
-        form.addRow("Best Time To Call", self.best_time_to_call_input)
-        form.addRow("Fax", self.fax_input)
-        form.addRow("Email", self.email_input)
-        form.addRow("Mother Name", self.mother_name_input)
-        form.addRow("Father Name", self.father_name_input)
-        form.addRow("Mother Age", self.mother_age_input)
-        form.addRow("Father Age", self.father_age_input)
-        self.biological_mother_input.add_to_form(form)
-        form.addRow("Biological Mother Name", self.biological_mother_name_input)
-        self.biological_father_input.add_to_form(form)
-        form.addRow("Biological Father Name", self.biological_father_name_input)
-        self.research_participation_input.add_to_form(form)
-        form.addRow("Research Study", self.research_study_input)
-        form.addRow("When", self.research_study_when_input)
-        form.addRow("Where", self.research_study_where_input)
+        rows = [
+            ("parent_name", "Parent Name", self.parent_name_input),
+            ("child_name", "Child Name", self.child_name_input),
+            ("date_of_birth", "Date of Birth", self.date_of_birth_input),
+            ("age", "Age (months)", None),
+            ("sex", "Sex", self.sex_combo),
+            ("race", "Race", None),
+            ("address", "Address", None),
+            ("city", "City", None),
+            ("state", "State", self.state_input),
+            ("zip_code", "Zip Code", self.zip_code_input),
+            ("home_phone", "Home Phone", self.home_phone_input),
+            ("work_phone", "Work Phone", self.work_phone_input),
+            ("best_time_to_call", "Best Time To Call", self.best_time_to_call_input),
+            ("fax", "Fax", None),
+            ("email", "Email", None),
+            ("mother_name", "Mother Name", None),
+            ("father_name", "Father Name", None),
+            ("mother_age", "Mother Age", None),
+            ("father_age", "Father Age", None),
+            ("biological_mother", None, self.biological_mother_input),
+            ("biological_mother_name", "Biological Mother Name", None),
+            ("biological_father", None, self.biological_father_input),
+            ("biological_father_name", "Biological Father Name", None),
+            ("research_participation", None, self.research_participation_input),
+            ("research_study", "Research Study", None),
+            ("research_study_when", "When", None),
+            ("research_study_where", "Where", None),
+        ]
+
+        form = QFormLayout()
+        self.fields: dict[str, QWidget] = {}
+        for key, label, widget in rows:
+            if widget is None:
+                # Plain text fields get a QLineEdit and the conventional
+                # `<column>_input` attribute so they remain addressable.
+                widget = QLineEdit()
+                setattr(self, f"{key}_input", widget)
+            if isinstance(widget, YesNoInput):
+                widget.add_to_form(form)
+            else:
+                form.addRow(label, widget)
+            self.fields[key] = widget
 
         save_button = QPushButton("Save Screening Questionnaire")
         save_button.setObjectName("PrimaryButton")
@@ -110,82 +119,44 @@ class ScreeningQuestionnaireView(QWidget):
         if not data:
             return
 
-        self.parent_name_input.setText(data.get("parent_name") or "")
-        self.child_name_input.setText(data.get("child_name") or "")
-        self.date_of_birth_input.setText(
-            format_date(data.get("date_of_birth"), self.date_format)
-        )
-        self.age_input.setText(data.get("age") or "")
-        sex = data.get("sex") or ""
-        if self.sex_combo.findText(sex) < 0:
-            self.sex_combo.addItem(sex)
-        self.sex_combo.setCurrentText(sex)
-        self.race_input.setText(data.get("race") or "")
-        self.address_input.setText(data.get("address") or "")
-        self.city_input.setText(data.get("city") or "")
-        self.state_input.setText(data.get("state") or "")
-        self.zip_code_input.setText(data.get("zip_code") or "")
-        self.home_phone_input.setText(data.get("home_phone") or "")
-        self.work_phone_input.setText(data.get("work_phone") or "")
-        self.best_time_to_call_input.setText(data.get("best_time_to_call") or "")
-        self.fax_input.setText(data.get("fax") or "")
-        self.email_input.setText(data.get("email") or "")
-        self.mother_name_input.setText(data.get("mother_name") or "")
-        self.father_name_input.setText(data.get("father_name") or "")
-        self.mother_age_input.setText(data.get("mother_age") or "")
-        self.father_age_input.setText(data.get("father_age") or "")
-        self.biological_mother_input.set_value(data.get("biological_mother"))
-        self.biological_mother_name_input.setText(data.get("biological_mother_name") or "")
-        self.biological_father_input.set_value(data.get("biological_father"))
-        self.biological_father_name_input.setText(data.get("biological_father_name") or "")
-        self.research_participation_input.set_value(data.get("research_participation"))
-        self.research_study_input.setText(data.get("research_study") or "")
-        self.research_study_when_input.setText(data.get("research_study_when") or "")
-        self.research_study_where_input.setText(data.get("research_study_where") or "")
+ 
+        for key, widget in self.fields.items():
+            if isinstance(widget, YesNoInput):
+                widget.set_value(data.get(key))
+            else:
+                widget.setText(data.get(key) or "")
+        self.date_of_birth_input.setText(format_date(data.get("date_of_birth")))
 
     def collect_data(self) -> dict:
         return {
-            "parent_name": self.parent_name_input.text().strip(),
-            "child_name": self.child_name_input.text().strip(),
-            "date_of_birth": self.date_of_birth_input.text().strip(),
-            "age": self.age_input.text().strip(),
-            "sex": self.sex_combo.currentText(),
-            "race": self.race_input.text().strip(),
-            "address": self.address_input.text().strip(),
-            "city": self.city_input.text().strip(),
-            "state": self.state_input.text().strip(),
-            "zip_code": self.zip_code_input.text().strip(),
-            "home_phone": self.home_phone_input.text().strip(),
-            "work_phone": self.work_phone_input.text().strip(),
-            "best_time_to_call": self.best_time_to_call_input.text().strip(),
-            "fax": self.fax_input.text().strip(),
-            "email": self.email_input.text().strip(),
-            "mother_name": self.mother_name_input.text().strip(),
-            "father_name": self.father_name_input.text().strip(),
-            "mother_age": self.mother_age_input.text().strip(),
-            "father_age": self.father_age_input.text().strip(),
-            "biological_mother": self.biological_mother_input.value(),
-            "biological_mother_name": self.biological_mother_name_input.text().strip(),
-            "biological_father": self.biological_father_input.value(),
-            "biological_father_name": self.biological_father_name_input.text().strip(),
-            "research_participation": self.research_participation_input.value(),
-            "research_study": self.research_study_input.text().strip(),
-            "research_study_when": self.research_study_when_input.text().strip(),
-            "research_study_where": self.research_study_where_input.text().strip(),
+            key: widget.value() if isinstance(widget, YesNoInput) else widget.text().strip()
+            for key, widget in self.fields.items()
         }
+
+    def _validation_error(self) -> str | None:
+        """Returns the first problem that would make the saved data unusable."""
+        zip_code = self.zip_code_input.text().strip()
+        # The validator stops bad typing, but legacy values loaded from the
+        # database bypass it, so the lengths are checked again at save time.
+        if zip_code and not (zip_code.isdigit() and len(zip_code) == ZIP_CODE_DIGITS):
+            return f"Enter the zip code as {ZIP_CODE_DIGITS} digits."
+        for label, phone in (("home", self.home_phone_input), ("work", self.work_phone_input)):
+            if not phone.is_valid():
+                return f"Enter the {label} phone number as {PhoneInput.NUMBER_DIGITS} digits."
+        if not self.best_time_to_call_input.is_valid():
+            return "Enter the best time to call as h:mm and choose AM or PM."
+        return None
 
     def save(self, *, show_confirmation=True) -> bool:
         data = self.collect_data()
-        try:
-            data["date_of_birth"] = parse_date(
-                data["date_of_birth"], self.date_format
-            )
-        except ValueError:
-            QMessageBox.warning(
-                self,
-                "Unable to save",
-                f"Enter date of birth as {self.date_format}.",
-            )
+        error = self._validation_error()
+        if error is None:
+            try:
+                data["date_of_birth"] = parse_date(data["date_of_birth"])
+            except ValueError:
+                error = f"Enter date of birth as {DATE_FORMAT}."
+        if error:
+            QMessageBox.warning(self, "Unable to save", error)
             return False
         save_screening_questionnaire(self.patient_id, data)
         if show_confirmation:

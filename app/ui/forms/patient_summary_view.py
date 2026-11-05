@@ -24,18 +24,18 @@ from app.database.repositories.forms import (
 from app.database.repositories.patients import get_patient
 from app.database.repositories.videos import list_patient_videos
 from app.services.preferences import format_date
+from app.ui.components.contact_inputs import PhoneInput, TimeOfDayInput
 from app.ui.components.yes_no_input import YesNoInput
 
 
 class PatientSummaryView(QWidget):
     """Review saved answers without changing blanks into database values."""
 
-    def __init__(self, patient_id, form_views, section_titles, date_format):
+    def __init__(self, patient_id, form_views, section_titles):
         super().__init__()
         self.patient_id = patient_id
         self.form_views = form_views
         self.section_titles = section_titles
-        self.date_format = date_format
         self.answers = []
 
         layout = QVBoxLayout(self)
@@ -105,7 +105,7 @@ class PatientSummaryView(QWidget):
                         value = None
                     else:
                         value = "Yes" if field.isChecked() else "No"
-                elif isinstance(field, QLineEdit):
+                elif isinstance(field, (QLineEdit, PhoneInput, TimeOfDayInput)):
                     value = field.text()
                 elif isinstance(field, QTextEdit):
                     value = field.toPlainText()
@@ -129,13 +129,11 @@ class PatientSummaryView(QWidget):
                 rows = [
                     (
                         "Date of birth used",
-                        format_date(
-                            context.get("scoring_date_of_birth"), self.date_format
-                        ),
+                        format_date(context.get("scoring_date_of_birth")),
                     ),
                     (
                         "Assessment date",
-                        format_date(context.get("assessment_date"), self.date_format),
+                        format_date(context.get("assessment_date")),
                     ),
                     (
                         "Confidence level",

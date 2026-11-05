@@ -1,5 +1,5 @@
-from PySide6.QtCore import QEvent, QRectF, Qt, Signal, Slot
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtCore import QEvent, Qt, Signal, Slot
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -30,23 +29,24 @@ from app.database.repositories.patients import (
     list_patients,
 )
 from app.services.preferences import format_date, load_preferences
+from app.ui.components.donut_chart import (
+    DONUT_EDGE_COLOR,
+    DONUT_PENDING_COLOR,
+    DONUT_READY_COLOR,
+    DonutChart,
+)
+from app.ui.components.monthly_activity_chart import MonthlyActivityChart
+from app.ui.components.risk_bar_chart import RiskBarChart
 from app.ui.dialogs.new_patient_dialog import NewPatientDialog
 from app.ui.dialogs.patient_detail_view import PatientDetailView
 from app.ui.theme import (
     DARK_PATIENTS_TABLE_STYLESHEET,
-    DONUT_CENTER_COLOR,
-    DONUT_CENTER_FONT_POINT_SIZE,
-    DONUT_CENTER_FONT_WEIGHT,
-    DONUT_TRACK_COLOR,
     PATIENTS_DONUT_CAPTION_STYLESHEET,
-    PATIENTS_EDGE_COLOR,
     PATIENTS_ELIGIBILITY_LABEL_STYLESHEET,
     PATIENTS_FILTER_BUTTON_STYLESHEET,
     PATIENTS_LEGEND_TEXT_STYLESHEET,
     PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET,
     PATIENTS_PAGE_SCROLL_STYLESHEET,
-    PATIENTS_PENDING_COLOR,
-    PATIENTS_READY_COLOR,
     PATIENTS_TABLE_ITEM_COLOR,
     PATIENTS_TABLE_STYLESHEET,
     patients_legend_dot_stylesheet,
@@ -54,61 +54,7 @@ from app.ui.theme import (
 )
 
 
-class DonutChart(QWidget):
-    #just draw arcs with QPainter w/ PySide6. no difference in styling
-    def __init__(self):
-        super().__init__()
-        self._segments: list[tuple[str,int,str]] = []
-        self._track_color = DONUT_TRACK_COLOR
-        self._center_color = DONUT_CENTER_COLOR
-        self._center_value: int = 0    # this will be total # of patients
-        self.setMinimumSize(140,140)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-    def set_segments(self, segments: list[tuple[str,int,str]], center_value: int | None = None) -> None:
-            self._segments = segments
-            self._center_value = center_value if center_value is not None else sum(v for _, v, _ in segments)
-            self.update()
-
-    def paintEvent(self, event) -> None:
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            side = min(self.width(), self.height())
-            thickness = side * 0.18
-            margin = thickness/2+4
-            rect = QRectF(margin, margin, side-2*margin, side-2*margin)
-
-
-            denom = self._center_value if self._center_value > 0 else sum(value for _, value, _ in self._segments)
-            track_pen = QPen(QColor(self._track_color), thickness)
-            track_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-            painter.setPen(track_pen)
-            painter.drawArc(rect, 0, 360*16)
-
-            if denom > 0:
-                start_angle = 90*16
-                for _, value, color in self._segments:
-                    if value <= 0:
-                        continue
-                    span_angle = int(-(value/denom) * 360 * 16)
-                    pen = QPen(QColor(color), thickness)
-                    pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-                    painter.setPen(pen)
-                    painter.drawArc(rect, start_angle, span_angle)
-                    start_angle += span_angle
-            painter.setPen(QColor(self._center_color))
-            font = QFont(painter.font())
-            font.setPointSize(DONUT_CENTER_FONT_POINT_SIZE)
-            font.setWeight(DONUT_CENTER_FONT_WEIGHT)
-            painter.setFont(font)
-            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, str(self._center_value))
-            painter.end()
-
-    def set_theme(self, theme: str) -> None:
-        dark = theme == "Dark"
-        self._track_color = "#4b5563" if dark else DONUT_TRACK_COLOR
-        self._center_color = "#e5e7eb" if dark else DONUT_CENTER_COLOR
-        self.update()
+RISK_CHART_GAP = 40
 
 
 class PatientsView(QWidget):
@@ -179,15 +125,15 @@ class PatientsView(QWidget):
         legend = QVBoxLayout()
         legend.setSpacing(10)
         self.pending_forms_row, self.pending_forms_label = self._legend_item(
-            PATIENTS_PENDING_COLOR, "Pending forms"
+            DONUT_PENDING_COLOR, "Pending forms"
         )
         self.ready_exports_row, self.ready_exports_label = self._legend_item(
-            PATIENTS_READY_COLOR, "Ready exports"
+            DONUT_READY_COLOR, "Ready exports"
         )
 
         #this is just a test to see what pending vs complete vs neither would look like.
         self.edge_case_row, self.edge_case_label = self._legend_item(
-            PATIENTS_EDGE_COLOR, "(edge case)"
+            DONUT_EDGE_COLOR, "(edge case)"
         )
         
         legend.addWidget(self.pending_forms_row)
@@ -195,9 +141,42 @@ class PatientsView(QWidget):
         legend.addWidget(self.edge_case_row)
         legend.addStretch()
 
+        # Risk breakdown sits beside the donut with the same caption style, so
+        # the two summaries read as one row of metrics.
+        self.risk_bar_chart = RiskBarChart()
+        risk_block = QVBoxLayout()
+        risk_block.setSpacing(5)
+        risk_block.addWidget(self.risk_bar_chart)
+        self.risk_caption = QLabel("Familial risk")
+        self.risk_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.risk_caption.setStyleSheet(PATIENTS_DONUT_CAPTION_STYLESHEET)
+        risk_block.addWidget(self.risk_caption)
+
+        # The legend and bar chart share their own row so RISK_CHART_GAP is the
+        # exact gap between them, independent of the donut's spacing.
+        legend_and_risk = QHBoxLayout()
+        legend_and_risk.setSpacing(RISK_CHART_GAP)
+        legend_and_risk.addLayout(legend)
+        legend_and_risk.addLayout(risk_block)
+
+        # Monthly trend of screenings and new high/low risk patients, captioned
+        # like the other two charts.
+        self.monthly_chart = MonthlyActivityChart()
+        monthly_block = QVBoxLayout()
+        monthly_block.setSpacing(5)
+        monthly_block.addWidget(self.monthly_chart)
+        self.monthly_caption = QLabel("Monthly activity")
+        self.monthly_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.monthly_caption.setStyleSheet(PATIENTS_DONUT_CAPTION_STYLESHEET)
+        monthly_block.addWidget(self.monthly_caption)
+
         metrics.addLayout(donut_block)
-        metrics.addLayout(legend)
-        metrics.addStretch()
+        metrics.addLayout(legend_and_risk)
+        metrics.addLayout(monthly_block)
+        # Stretch factor 1 sends all spare width to the right edge. Without it
+        # the legend rows (which contain their own stretch) widen to soak up
+        # that space, pushing the bar chart far away from the legend.
+        metrics.addStretch(1)
 
         controls = QHBoxLayout()
         controls.setSpacing(10)
@@ -320,6 +299,8 @@ class PatientsView(QWidget):
         self.preferences = preferences.copy()
         dark = preferences["theme"] == "Dark"
         self.metrics_donut_chart.set_theme(preferences["theme"])
+        self.risk_bar_chart.set_theme(preferences["theme"])
+        self.monthly_chart.set_theme(preferences["theme"])
         self.table.setStyleSheet(
             themed_stylesheet(
                 PATIENTS_TABLE_STYLESHEET,
@@ -327,13 +308,10 @@ class PatientsView(QWidget):
                 preferences["theme"],
             )
         )
-        self.table.verticalHeader().setDefaultSectionSize(
-            34 if preferences["row_density"] == "Compact" else 48
-        )
+        self.table.verticalHeader().setDefaultSectionSize(34)
         text_color = "#e5e7eb" if dark else "#1a1a1a"
-        self.donut_caption.setStyleSheet(
-            f"color: {text_color}; font-size: 11px; font-weight: bold;"
-        )
+        for caption in (self.donut_caption, self.risk_caption, self.monthly_caption):
+            caption.setStyleSheet(f"color: {text_color}; font-size: 11px; font-weight: bold;")
         for label in (self.eligibility_label, self.risk_label):
             label.setStyleSheet(f"font-weight: bold; color: {text_color};")
         for label in (
@@ -477,11 +455,7 @@ class PatientsView(QWidget):
                     patient.get("child_name") or "N/A",
                     patient.get("eligibility") or "Problem with eligibility",
                     patient.get("screener") or "N/A",
-                    format_date(
-                        patient.get("schedule_date"),
-                        self.preferences["date_format"],
-                    )
-                    or "N/A",
+                    format_date(patient.get("schedule_date")) or "N/A",
                     patient.get("comment") or "",
                 ]
 
@@ -508,11 +482,14 @@ class PatientsView(QWidget):
 
         self.metrics_donut_chart.set_segments(
             [
-                ("Pending forms", pending_forms, PATIENTS_PENDING_COLOR),
-                ("Ready exports", completed_forms, PATIENTS_READY_COLOR),
+                ("Pending forms", pending_forms, DONUT_PENDING_COLOR),
+                ("Ready exports", completed_forms, DONUT_READY_COLOR),
             ],
             center_value=len(self.patients),
         )
+        # Same patient list as the donut and table, so all three always agree.
+        self.risk_bar_chart.set_patients(self.patients)
+        self.monthly_chart.set_patients(self.patients)
         
 
     def open_new_patient_dialog(self) -> None:

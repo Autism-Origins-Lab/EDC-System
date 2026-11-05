@@ -14,6 +14,7 @@ from app.services.backups import (
     inspect_backup,
 )
 from app.services.preferences import load_preferences, save_preferences
+from app.ui.components.dropdown_wheel_guard import install_dropdown_wheel_guard
 from app.ui.main_window import MainWindow
 from app.ui.theme import application_stylesheet
 
@@ -98,6 +99,8 @@ def prepare_database() -> bool:
 
 def main() -> int:
     application = QApplication(sys.argv)
+    # stops the scrolling for the drop downs bc it was annoying and would interfere with jumping around the forms.
+    install_dropdown_wheel_guard(application)
     preferences = load_preferences()
     application.setStyleSheet(application_stylesheet(preferences["theme"]))
     try:

@@ -17,9 +17,9 @@ def test_settings_controls_have_view_specific_contrast(qtbot):
     checkboxes = view.findChildren(QCheckBox, "SettingsOptionCheckBox")
     combo_boxes = view.findChildren(SettingsComboBox)
 
-    assert len(labels) == 4
+    assert len(labels) == 2
     assert len(checkboxes) == 2
-    assert len(combo_boxes) == 4
+    assert len(combo_boxes) == 2
     assert all(
         label.palette().color(QPalette.ColorRole.WindowText).name() == "#1f2937"
         for label in labels
@@ -75,9 +75,7 @@ def test_settings_save_preferences_and_emit_change(qtbot, monkeypatch, tmp_path)
     view.preferences_saved.connect(saved.append)
 
     view.theme_combo.setCurrentText("Dark")
-    view.row_density_combo.setCurrentText("Compact")
     view.start_page_combo.setCurrentText("Exports")
-    view.date_format_combo.setCurrentText("MM/DD/YYYY")
     view.confirm_delete_checkbox.setChecked(False)
     view.unsaved_changes_checkbox.setChecked(False)
     view.save_button.click()
@@ -87,11 +85,10 @@ def test_settings_save_preferences_and_emit_change(qtbot, monkeypatch, tmp_path)
     assert saved[0] == view.collect_preferences()
 
 
-def test_main_window_applies_startup_page_and_row_density(temp_database, qtbot):
+def test_main_window_applies_startup_page_and_compact_rows(temp_database, qtbot):
     preferences = {
         **DEFAULT_PREFERENCES,
         "startup_page": "Settings",
-        "row_density": "Compact",
     }
     window = MainWindow(preferences)
     qtbot.addWidget(window)

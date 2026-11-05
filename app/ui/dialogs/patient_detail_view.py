@@ -1,6 +1,6 @@
 import sqlite3
 
-from PySide6.QtCore import QSignalBlocker, Qt, Signal
+from PySide6.QtCore import QEvent, QSignalBlocker, Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -28,6 +28,8 @@ from app.database.repositories.patients import (
 )
 from app.services.backups import BackupError
 from app.services.preferences import load_preferences
+from app.ui.components.donut_chart import DONUT_READY_COLOR
+from app.ui.components.yes_no_input import YesNoInput
 from app.ui.forms.family_medical_history_view import FamilyMedicalHistoryView
 from app.ui.forms.medical_history_view import MedicalHistoryView
 from app.ui.forms.mullen_view import MullenView
@@ -40,6 +42,7 @@ from app.ui.forms.video_references_view import VideoReferencesView
 from app.ui.theme import (
     DARK_PATIENT_WORKSPACE_STYLESHEET,
     PATIENT_WORKSPACE_STYLESHEET,
+    form_step_stylesheet,
     themed_stylesheet,
 )
 
@@ -104,8 +107,19 @@ STEP_LABELS = (
 )
 
 
+class _MinimumHeightBody(QWidget):
+
+    def heightForWidth(self, _width: int) -> int:
+        return -1
+
+
+# How long the save button shows "Saved successfully" before reverting.
+SAVED_FLASH_MS = 1500
+
+
 class FormProgress(QWidget):
-    """A read-only section indicator; navigation happens through the footer."""
+
+    step_clicked = Signal(int)
 
     def __init__(self):
         super().__init__()
@@ -150,23 +164,43 @@ class FormProgress(QWidget):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             content.addWidget(label)
             layout.addWidget(step, 1)
+            step.installEventFilter(self)
             self.steps.append(step)
             self.connectors.append((left, right))
 
-    def set_current_step(self, current):
+    def eventFilter(self, watched, event) -> bool:
+        if (
+            event.type() == QEvent.Type.MouseButtonRelease
+            and event.button() == Qt.MouseButton.LeftButton
+            and watched in self.steps
+            and watched.property("stepState") != "current"
+        ):
+            self.step_clicked.emit(self.steps.index(watched))
+            return True
+        return super().eventFilter(watched, event)
+
+    def set_current_step(self, current: int, saved_steps: set[int]) -> None:
+        reached = saved_steps | {current}
         for index, step in enumerate(self.steps):
             state = (
-                "saved"
-                if index < current
-                else "current"
+                "current"
                 if index == current
+                else "saved"
+                if index in saved_steps
                 else "upcoming"
             )
             step.setProperty("stepState", state)
             left, right = self.connectors[index]
-            left.setProperty("filled", index <= current)
-            right.setProperty("filled", index < current)
-            step.setAccessibleName(f"Step {index + 1}: {STEP_LABELS[index]}, {state}")
+            left.setProperty("filled", index in reached and index - 1 in reached)
+            right.setProperty("filled", index in reached and index + 1 in reached)
+            clickable = state != "current"
+            step.setCursor(
+                Qt.CursorShape.PointingHandCursor
+                if clickable
+                else Qt.CursorShape.ArrowCursor
+            )
+            hint = ", click to open" if clickable else ""
+            step.setAccessibleName(f"Step {index + 1}: {STEP_LABELS[index]}, {state}{hint}")
             for widget in [step, *step.findChildren(QWidget)]:
                 widget.style().unpolish(widget)
                 widget.style().polish(widget)
@@ -188,6 +222,7 @@ class PatientDetailView(QDialog):
         self._completed_steps = set()
         self._tracking_enabled = False
         self._saved_states: dict[int, tuple] = {}
+        self._fit_window_to_screen = False  # set by _scrollable_window_body
 
         subject_id = self.patient.get("subject_id") or str(patient_id)
         self.setObjectName("PatientWorkspace")
@@ -200,15 +235,12 @@ class PatientDetailView(QDialog):
                 DARK_PATIENT_WORKSPACE_STYLESHEET,
                 self.preferences["theme"],
             )
+            + form_step_stylesheet(DONUT_READY_COLOR, self.preferences["theme"])
         )
 
-        self.overview_view = PatientOverviewView(patient_id, self.preferences)
-        self.telephone_screening_view = TelephoneScreeningView(
-            patient_id, self.preferences
-        )
-        self.screening_questionnaire_view = ScreeningQuestionnaireView(
-            patient_id, self.preferences
-        )
+        self.overview_view = PatientOverviewView(patient_id)
+        self.telephone_screening_view = TelephoneScreeningView(patient_id)
+        self.screening_questionnaire_view = ScreeningQuestionnaireView(patient_id)
         self.medical_history_view = MedicalHistoryView(patient_id)
         self.family_medical_history_view = FamilyMedicalHistoryView(patient_id)
         self.procedure_schedule_view = ProcedureScheduleView(patient_id)
@@ -228,7 +260,6 @@ class PatientDetailView(QDialog):
             patient_id,
             form_views,
             [section[1] for section in SECTION_DETAILS[:-1]],
-            self.preferences["date_format"],
         )
         self.views = [*form_views, self.summary_view]
         self.review_index = len(form_views)
@@ -247,11 +278,15 @@ class PatientDetailView(QDialog):
         self._update_save_status()
 
     def _build_layout(self) -> None:
-        content = QVBoxLayout(self)
+        body = self
+        # comment out next line to remove both.
+        body = self._scrollable_window_body()
+        content = QVBoxLayout(body)
         content.setContentsMargins(24, 20, 24, 20)
         content.setSpacing(10)
 
         self.progress = FormProgress()
+        self.progress.step_clicked.connect(self.jump_to_step)
         content.addWidget(self.progress)
         self.step_label = QLabel()
         self.step_label.setObjectName("WorkspaceMuted")
@@ -303,6 +338,38 @@ class PatientDetailView(QDialog):
         footer.addWidget(self.save_button)
         content.addLayout(footer)
 
+    def _scrollable_window_body(self) -> QWidget:
+        #dynamic scrollable window
+        self._fit_window_to_screen = True
+        body = _MinimumHeightBody()
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setWidget(body)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(scroll_area)
+        return body
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if not self._fit_window_to_screen:
+            return
+        self._fit_window_to_screen = False
+        available = self.screen().availableGeometry()
+        border_width = self.frameGeometry().width() - self.width()
+        border_height = self.frameGeometry().height() - self.height()
+        self.resize(
+            min(self.width(), available.width() - border_width),
+            min(self.height(), available.height() - border_height),
+        )
+        frame = self.frameGeometry()
+        frame.moveRight(min(frame.right(), available.right()))
+        frame.moveBottom(min(frame.bottom(), available.bottom()))
+        frame.moveLeft(max(frame.left(), available.left()))
+        frame.moveTop(max(frame.top(), available.top()))
+        self.move(frame.topLeft())
+
     @staticmethod
     def _scrollable_page(view: QWidget) -> QScrollArea:
         scroll_area = QScrollArea()
@@ -330,6 +397,8 @@ class PatientDetailView(QDialog):
             field.currentIndexChanged.connect(self._mark_unsaved)
         for field in view.findChildren(QCheckBox):
             field.toggled.connect(self._mark_unsaved)
+        for field in view.findChildren(YesNoInput):
+            field.valueChanged.connect(self._mark_unsaved)
 
     @staticmethod
     def _input_widgets(view: QWidget) -> list[QWidget]:
@@ -338,6 +407,7 @@ class PatientDetailView(QDialog):
             *view.findChildren(QTextEdit),
             *view.findChildren(QComboBox),
             *view.findChildren(QCheckBox),
+            *view.findChildren(YesNoInput),
         ]
 
     def _input_state(self, view: QWidget) -> tuple:
@@ -351,6 +421,8 @@ class PatientDetailView(QDialog):
                 state.append(("combo", field.currentText()))
             elif isinstance(field, QCheckBox):
                 state.append(("check", field.isChecked()))
+            elif isinstance(field, YesNoInput):
+                state.append(("yes_no", field.value()))
         return tuple(state)
 
     def _restore_input_state(self, view: QWidget, state: tuple) -> None:
@@ -365,6 +437,8 @@ class PatientDetailView(QDialog):
                     field.setCurrentText(value)
                 elif isinstance(field, QCheckBox):
                     field.setChecked(value)
+                elif isinstance(field, YesNoInput):
+                    field.set_value(value)
         finally:
             self._tracking_enabled = True
         self._update_save_status()
@@ -424,16 +498,46 @@ class PatientDetailView(QDialog):
         self._current_index = target_index
         self.pages.setCurrentIndex(target_index)
         self._update_section_header(target_index)
-        self.progress.set_current_step(target_index)
+        self.progress.set_current_step(target_index, self._completed_steps)
         self.step_label.setText(f"Step {target_index + 1} of {len(self.views)}")
         self.back_button.setEnabled(target_index > 0)
-        self.save_button.setText(
-            "Mark as Complete"
-            if target_index == self.review_index
-            else "Save and Continue"
-        )
+        self._reset_save_button_text()
         self.refresh_button_state()
         self._update_save_status()
+
+    def _reset_save_button_text(self) -> None:
+        self.save_button.setText(
+            "Mark as Complete"
+            if self._current_index == self.review_index
+            else "Save and Continue"
+        )
+
+    def _flash_saved(self) -> None:
+        """Confirms a save on the button itself instead of with a pop-up."""
+        self.save_button.setText("Saved successfully")
+        QTimer.singleShot(SAVED_FLASH_MS, self, self._reset_save_button_text)
+
+    def _current_section_has_unsaved_changes(self) -> bool:
+        index = self._current_index
+        return self._input_state(self.views[index]) != self._saved_states[index]
+
+    def jump_to_step(self, target_index: int) -> bool:
+        """Opens any section from the progress bar.
+
+        Leaving is allowed only when the current section is saved or untouched,
+        so a jump can never silently strand unsaved answers on another step.
+        """
+        if target_index == self._current_index:
+            return False
+        if self._current_section_has_unsaved_changes():
+            QMessageBox.warning(
+                self,
+                "Unsaved changes",
+                "Save this section before switching to another.",
+            )
+            return False
+        self._show_step(target_index)
+        return True
 
     def go_back(self) -> None:
         if self._current_index > 0:
@@ -446,6 +550,7 @@ class PatientDetailView(QDialog):
             return False
         self._completed_steps.add(self._current_index)
         self._show_step(self._current_index + 1)
+        self._flash_saved()
         return True
 
     def save_current_section(self) -> bool:

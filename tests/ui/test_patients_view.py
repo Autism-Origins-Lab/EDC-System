@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QPushButton
 
 from app.database.connection import get_connection
 from app.database.schema import initialize_database
+from app.services.preferences import format_date
 from app.ui.pages.patients_view import PatientsView
 
 
@@ -120,7 +121,8 @@ def test_export_csv_matches_patients_displayed_in_table(
             "screener",
             "schedule_date",
         ):
-            assert exported[field] == displayed[field]
+            expected = format_date(exported[field]) if field == "schedule_date" else exported[field]
+            assert expected == displayed[field]
 
         patient_data = next(
             patient

@@ -161,6 +161,7 @@ def list_patients(sort_by: str = "Newest First", eligibility_filter: str | None 
                 COALESCE(NULLIF(TRIM(ts.eligibility), ''), 'Not evaluated') AS eligibility,
                 p.risk AS risk, 
                 ts.screener,
+                ts.screening_date,
                 ts.schedule_date,
                 ts.eligibility_comment AS comment
             FROM patients p

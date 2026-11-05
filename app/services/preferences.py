@@ -1,16 +1,14 @@
 """Persistence and formatting helpers for local application preferences."""
 
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from app import config
 
 DEFAULT_PREFERENCES = {
     "theme": "Light",
-    "row_density": "Comfortable",
     "startup_page": "Patients",
-    "date_format": "YYYY-MM-DD",
     "confirm_delete": True,
     "warn_unsaved_changes": True,
     "backup_directory": "",
@@ -18,9 +16,7 @@ DEFAULT_PREFERENCES = {
 
 PREFERENCE_OPTIONS = {
     "theme": {"Light", "Dark"},
-    "row_density": {"Comfortable", "Compact"},
     "startup_page": {"Patients", "Imports", "Exports", "Settings"},
-    "date_format": {"MM/DD/YYYY", "YYYY-MM-DD"},
 }
 
 
@@ -66,26 +62,28 @@ def save_preferences(values: dict, path: Path | None = None) -> dict:
     return preferences
 
 
-def format_date(value: str | None, date_format: str) -> str:
+# Every date in the app is shown as MM-DD-YYYY. Fixed format rather than a preference.
+# database keeps YYYY-MM-DD bc that's more standard for exports/sheets
+DATE_FORMAT = "MM-DD-YYYY"
+_DISPLAY_PATTERN = "%m-%d-%Y"
+
+
+def format_date(value: str | None) -> str:
     """Format a stored ISO date for display, leaving non-date values untouched."""
     if not value:
         return ""
     try:
-        parsed = date.fromisoformat(value)
+        return date.fromisoformat(value).strftime(_DISPLAY_PATTERN)
     except ValueError:
         return value
-    return parsed.strftime("%m/%d/%Y" if date_format == "MM/DD/YYYY" else "%Y-%m-%d")
 
 
-def parse_date(value: str, date_format: str) -> str:
-    """Convert a user-entered date to the ISO representation stored in SQLite."""
+def parse_date(value: str) -> str:
+    """Convert a user-entered MM-DD-YYYY date to the ISO form stored in SQLite."""
     cleaned_value = value.strip()
     if not cleaned_value:
         return ""
     try:
-        if date_format == "MM/DD/YYYY":
-            month, day, year = (int(part) for part in cleaned_value.split("/"))
-            return date(year, month, day).isoformat()
-        return date.fromisoformat(cleaned_value).isoformat()
+        return datetime.strptime(cleaned_value, _DISPLAY_PATTERN).date().isoformat()
     except ValueError as exc:
-        raise ValueError(f"Enter the date as {date_format}.") from exc
+        raise ValueError(f"Enter the date as {DATE_FORMAT}.") from exc
