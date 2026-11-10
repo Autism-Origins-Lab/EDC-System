@@ -3,7 +3,7 @@ from PIL import Image
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "app" / "assets"
 
-for name in ["printbutton.png", "emailbutton.png"]:
+for name in ["printbutton.png", "emailbutton.png", "yellowexclamationmark.png"]:
     path = ASSETS_DIR / name
     img = Image.open(path).convert("RGBA")
     pixels = [

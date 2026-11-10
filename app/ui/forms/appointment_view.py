@@ -1,5 +1,7 @@
 from datetime import datetime
+from pathlib import Path
 
+from dateutil.relativedelta import relativedelta
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtCore import QDate, QEvent, Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QIcon, QPainter, QTextCharFormat
@@ -33,6 +35,19 @@ REMINDER_STATUS = {
     2: "Second Reminder Sent!",
     3: "Final Reminder Sent!",
 }
+NO_DATE = "No Appointment Date"
+NEEDS_UPDATE = "Need an Appointment Update"
+SORT_GROUP = {None: 0, NEEDS_UPDATE: 1, NO_DATE: 2}  # upcoming first, then past dates, then no date
+ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
+
+
+def _icon(name: str) -> QIcon:
+    return QIcon(str(ASSETS_DIR / name))
+
+
+def _sort_key(appointment: tuple) -> tuple:
+    scheduled, status, _ = appointment
+    return (SORT_GROUP[status], scheduled or datetime.min)
 
 
 class calendarEffects(QCalendarWidget):
@@ -86,7 +101,7 @@ class appointmentView(QWidget):
         self.appointment_table_list.cellDoubleClicked.connect(self.change_schedule_date)
         self.appointment_table_list.setColumnCount(7)
         self.appointment_table_list.setHorizontalHeaderLabels(
-            ["Subject ID", "Patient Name", "Schedule Date", "Birth Date", "Familial Risk", "Sex", "Reminders Sent"]
+            ["Subject ID", "Patient Name", "Schedule Date", "Screener", "Familial Risk", "Sex", "Reminders Sent"]
         )
         self.appointment_table_list.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.appointment_table_list.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -95,6 +110,8 @@ class appointmentView(QWidget):
         self.appointment_table_list.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.appointment_table_list.setFont(QFont("Helvetica Neue", 15))
         self.appointment_table_list.viewport().installEventFilter(self)
+        self.appointment_table_list.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.appointment_table_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.main_layout.addWidget(self.appointment_table_list, 1)
 
     def refresh_appointment_list(self):
@@ -102,30 +119,29 @@ class appointmentView(QWidget):
 
         appointments = []
         for patient in list_patients():
-            date_str = patient["schedule_date"]
-            if not date_str:
-                continue
-            scheduled = parse_date(date_str)
+            scheduled = parse_date(patient["schedule_date"] or "")  # "" and None both mean no date
             if scheduled is None:
-                print(f"Unrecognized date for {patient['subject_id']}: {date_str!r}")
-                continue
-            if scheduled.date() >= now.date():
-                appointments.append((scheduled, patient))
+                status = NO_DATE
+            elif scheduled.date() < now.date():
+                status = NEEDS_UPDATE
+            else:
+                status = None  # upcoming appointment
+            appointments.append((scheduled, status, patient))
 
-        # Bubble sort, earliest appointment first.
+        # Bubble sort: upcoming appointments earliest first, then past dates, then patients with no date.
         swapped = True
         while swapped:
             swapped = False
             for i in range(len(appointments) - 1):
-                if appointments[i][0] > appointments[i + 1][0]:
+                if _sort_key(appointments[i]) > _sort_key(appointments[i + 1]):
                     appointments[i], appointments[i + 1] = appointments[i + 1], appointments[i]
                     swapped = True
 
-        self.patients = [patient for _, patient in appointments]
+        self.patients = [patient for _, _, patient in appointments]
 
         table = self.appointment_table_list
         table.setRowCount(len(appointments))
-        for row, (scheduled, patient) in enumerate(appointments):
+        for row, (scheduled, status, patient) in enumerate(appointments):
             if patient["high_familial_risk"] == 1:
                 risk = "High Risk"
             elif patient["low_familial_risk"] == 1:
@@ -133,18 +149,23 @@ class appointmentView(QWidget):
             else:
                 risk = "Not evaluated"
 
-            # The daily job sends a reminder 14, 7 and 1 days before, so count the ones already reached.
-            days_until = (scheduled.date() - now.date()).days
-            reminder_count = sum(1 for days in REMINDER_MESSAGES if days >= days_until)
-            reminder_status = REMINDER_STATUS.get(reminder_count, "No Reminders Sent Yet")
+            if status is None:
+                date_text = scheduled.strftime("%Y-%m-%d")
+                # The daily job sends a reminder 14, 7 and 1 days before, so count the ones already reached.
+                days_until = (scheduled.date() - now.date()).days
+                reminder_count = sum(1 for days in REMINDER_MESSAGES if days >= days_until)
+                reminder_item = QTableWidgetItem(REMINDER_STATUS.get(reminder_count, "No Reminders Sent Yet"))
+            else:
+                date_text = status
+                reminder_item = QTableWidgetItem(_icon("yellowexclamationmark.png"), "")
 
             table.setItem(row, 0, QTableWidgetItem(patient["subject_id"]))
             table.setItem(row, 1, QTableWidgetItem(patient["child_name"] or "Unnamed"))
-            table.setItem(row, 2, QTableWidgetItem(scheduled.strftime("%Y-%m-%d")))
-            table.setItem(row, 3, QTableWidgetItem(patient["date_of_birth"] or "Unknown"))
+            table.setItem(row, 2, QTableWidgetItem(date_text))
+            table.setItem(row, 3, QTableWidgetItem(patient["screener"] or "Unknown"))
             table.setItem(row, 4, QTableWidgetItem(risk))
             table.setItem(row, 5, QTableWidgetItem(patient["sex"] or "Unknown"))
-            table.setItem(row, 6, QTableWidgetItem(reminder_status))
+            table.setItem(row, 6, reminder_item)
 
     def showEvent(self, event):
         self.refresh_appointment_list()
@@ -167,6 +188,30 @@ class appointmentView(QWidget):
             self.clear_list_selection()
         return super().eventFilter(obj, event)
 
+    def change_button_layout(self, button):
+        if button.text() == "Save":
+            button.setStyleSheet("""
+                QPushButton{
+                    margin: 2px;
+                }
+                QPushButton:hover{
+                    background-color: #ADD8E6;
+                }
+            """)
+        else:
+            button.setStyleSheet("""
+                QPushButton{
+                    margin: 2px;
+                    padding: 6px 6px;
+                    border: none;
+                    border-radius: 4px;
+                }
+                QPushButton:hover{
+                    background-color: #ADD8E6;
+                }
+            """)
+        return button
+
     def change_schedule_date(self, row: int, column: int):
         patient = self.patients[row]
         date_format = preferences.load_preferences()["date_format"]
@@ -182,12 +227,12 @@ class appointmentView(QWidget):
                 padding: 4px 8px;
             }
         """)
-        schedule_change_frame.setFixedWidth(200)  # height follows the contents
+        schedule_change_frame.setFixedWidth(250)  # height follows the contents
 
         schedule_change_layout = QVBoxLayout(schedule_change_frame)
         schedule_change_layout.setSpacing(5)
         schedule_change_layout.setContentsMargins(5, 5, 5, 5)
-        schedule_change_layout.addWidget(QLabel("Change Schedule Date"))
+        schedule_change_layout.addWidget(QLabel("Change or Add Schedule Date"))
 
         schedule_change_input = QDateEdit()
         schedule_change_input.setCalendarPopup(True)
@@ -251,17 +296,48 @@ class appointmentView(QWidget):
 
         # Show the picker in the same format as the Settings preference.
         schedule_change_input.setDisplayFormat("MM/dd/yyyy" if date_format == "MM/DD/YYYY" else "yyyy-MM-dd")
-        schedule_change_input.setDate(QDate.fromString(self.appointment_table_list.item(row, 2).text(), "yyyy-MM-dd"))
+        start_date = QDate.fromString(self.appointment_table_list.item(row, 2).text(), "yyyy-MM-dd")
+        schedule_change_input.setDate(start_date if start_date.isValid() else QDate.currentDate())  # no/past date -> today
         schedule_change_layout.addWidget(schedule_change_input)
 
         schedule_change_line = QLineEdit()
-        schedule_change_line.setPlaceholderText(f"or type a date ({date_format})")
+        schedule_change_line.setPlaceholderText(f"{date_format}")
         schedule_change_layout.addWidget(schedule_change_line)
 
+        follow_up_1week_button = QPushButton("Follow Up in One Week")
+        self.change_button_layout(follow_up_1week_button)
+        follow_up_1week_button.setCursor(Qt.PointingHandCursor)
+        follow_up_1week_button.setObjectName("PrimaryButton")
+        schedule_change_layout.addWidget(follow_up_1week_button)
+        follow_up_1month_button = QPushButton("Follow Up in One Month")
+        self.change_button_layout(follow_up_1month_button)
+        follow_up_1month_button.setCursor(Qt.PointingHandCursor)
+        follow_up_1month_button.setObjectName("PrimaryButton")
+        schedule_change_layout.addWidget(follow_up_1month_button)
+        follow_Up_6month_button = QPushButton("Follow up in 6 Months")
+        self.change_button_layout(follow_Up_6month_button)
+        follow_Up_6month_button.setCursor(Qt.PointingHandCursor)
+        follow_Up_6month_button.setObjectName("PrimaryButton")
+        schedule_change_layout.addWidget(follow_Up_6month_button)
+
         save_button = QPushButton("Save")
+        self.change_button_layout(save_button)
         save_button.setCursor(Qt.PointingHandCursor)
         save_button.setObjectName("PrimaryButton")
         schedule_change_layout.addWidget(save_button)
+
+        remove_button = QPushButton("Remove Schedule Date")
+        self.change_button_layout(remove_button)
+        remove_button.setCursor(Qt.PointingHandCursor)
+        remove_button.setObjectName("PrimaryButton")
+        schedule_change_layout.addWidget(remove_button)
+
+        def follow_up(delta: relativedelta) -> None:
+            changed_date = datetime.now() + delta
+            new_date = changed_date.strftime("%Y-%m-%d")  # datetime -> text, the format stored in the database
+            save_telephone_screening(patient["id"], {"schedule_date": new_date})
+            schedule_change_frame.close()
+            self.refresh_appointment_list()
 
         def save() -> None:
             typed_date = schedule_change_line.text().strip()
@@ -278,7 +354,16 @@ class appointmentView(QWidget):
             schedule_change_frame.close()
             self.refresh_appointment_list()
 
+        def remove() -> None:
+            save_telephone_screening(patient["id"], {"schedule_date": None})
+            schedule_change_frame.close()
+            self.refresh_appointment_list()
+
+        follow_up_1week_button.clicked.connect(lambda: follow_up(relativedelta(weeks=1)))
+        follow_up_1month_button.clicked.connect(lambda: follow_up(relativedelta(months=1)))
+        follow_Up_6month_button.clicked.connect(lambda: follow_up(relativedelta(months=6)))
         save_button.clicked.connect(save)
+        remove_button.clicked.connect(remove)
         schedule_change_line.returnPressed.connect(save)
 
         schedule_change_frame.move(QCursor.pos())

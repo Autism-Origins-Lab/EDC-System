@@ -18,10 +18,12 @@ REMINDER_MESSAGES = {
     7: "Reminder: Patient {} has an appointment in 7 days.",
     1: "Reminder: Patient {} has an appointment tomorrow.",
 }
-REMINDER_PREFIX = "Reminder: Patient "  # only scheduled messages starting with this are ever cancelled
-REMINDER_TIME = time(12, 30)  
+SCREENER_REMINDER_MESSAGE = "Reminder: Screener {} has additional appointment days to set"
+SCREENER_REMINDER_DAY = 2  # Wednesday (Monday=0)
+REMINDER_PREFIX = "Reminder: "  # only scheduled messages starting with this are ever cancelled
+REMINDER_TIME = time(12, 30)
 SLACK_MAX_DAYS_AHEAD = 120  # Slack rejects messages scheduled further out than this
-DATE_FMT = ["%m/%d/%y", "%m/%d/%Y", "%Y-%m-%d"]
+DATE_FMT = ["%m/%d/%y", "%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S.%f"]  # last one: dates saved with a time attached
 
 client = WebClient(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
 
@@ -50,6 +52,24 @@ def due_reminders(today: date | None = None) -> list[str]:
     return messages
 
 
+def pending_screener_reminders() -> list[str]:
+    """One message per screener who still has patients without a schedule date."""
+    screeners = set()
+    for patient in list_patients():
+        if patient["screener"] and not patient["schedule_date"]:
+            screeners.add(patient["screener"])
+    return [SCREENER_REMINDER_MESSAGE.format(name) for name in sorted(screeners)]
+
+
+def next_screener_reminder_time(now: datetime) -> datetime:
+    """The next Wednesday at REMINDER_TIME that's still in the future."""
+    days_ahead = (SCREENER_REMINDER_DAY - now.weekday()) % 7
+    post_at = datetime.combine(now.date() + timedelta(days=days_ahead), REMINDER_TIME)
+    if post_at <= now:  # already past 12:30 this Wednesday
+        post_at += timedelta(days=7)
+    return post_at
+
+
 def planned_reminders(now: datetime | None = None) -> list[tuple[int, str]]:
     """Return (post_at unix time, message) for every reminder Slack can be asked to post."""
     now = now or datetime.now()
@@ -63,6 +83,10 @@ def planned_reminders(now: datetime | None = None) -> list[tuple[int, str]]:
             post_at = datetime.combine(scheduled.date() - timedelta(days=days_before), REMINDER_TIME)
             if now < post_at <= latest:
                 planned.append((int(post_at.timestamp()), template.format(patient["subject_id"])))
+
+    screener_post_at = int(next_screener_reminder_time(now).timestamp())
+    for message in pending_screener_reminders():
+        planned.append((screener_post_at, message))
     return sorted(planned)
 
 
