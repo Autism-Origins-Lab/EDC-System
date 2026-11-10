@@ -17,7 +17,7 @@ from PySide6.QtCore import QSize
 from PySide6.QtGui import QDesktopServices, QIcon
 
 from app.database.repositories.patients import list_patients
-from app.database.repositories.patient_pdf_export import build_patient_pdf
+from app.services.patient_pdf_export import build_patient_pdf
 
 
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
@@ -84,13 +84,6 @@ class PatientExportView(QWidget):
         # selecting in one list clears the other, so only one patient can be picked at a time
         self.eligible_list.itemSelectionChanged.connect(self._on_eligible_selected)
         self.ineligible_list.itemSelectionChanged.connect(self._on_ineligible_selected)
-
-        self.print_button = QPushButton("Print")
-        self.print_button.clicked.connect(self._on_print_clicked)
-        self.main_layout.addWidget(self.print_button)
-        self.print_button.setIcon(_icon("printbutton.png"))
-        self.print_button.setIconSize(QSize(20, 20))
-
 
         self.email_button = QPushButton("Email")
         self.email_button.clicked.connect(self._on_email_clicked)
@@ -160,20 +153,6 @@ class PatientExportView(QWidget):
         path = Path(tempfile.gettempdir()) / f"{patient['subject_id']}_report.pdf"
         build_patient_pdf(patient["id"], path)
         return path
-
-    def _on_print_clicked(self) -> None:
-        patient = self._selected_patient()
-        if not patient:
-            return
-
-        try:
-            path = self._build_temp_pdf(patient)
-            if sys.platform.startswith("win"):
-                os.startfile(str(path), "print")
-            else:  # macOS / Linux
-                subprocess.run(["lp", str(path)], check=True)
-        except Exception as e:
-            QMessageBox.critical(self, "Print failed", str(e))
 
     def _on_email_clicked(self) -> None:
         patient = self._selected_patient()
