@@ -111,6 +111,50 @@ def test_export_preserves_mullen_context_scores_and_patient_links(temp_database,
         workbook.close()
 
 
+def test_export_keeps_summary_history_and_cleared_numeric_fields_empty(temp_database, tmp_path):
+    patient_id = create_patient("MULLEN-HISTORY-EXPORT")
+    context = {
+        "assessment_date": "2025-03-01", "scoring_date_of_birth": "2025-01-01",
+        "confidence_level": 90, "age_calculation": "calendar",
+    }
+    first_id = save_mullen_assessment(
+        patient_id, {"gross_motor": {"raw_score": 3, "t_score": 37}}, context=context
+    )
+    second_id = save_mullen_assessment(
+        patient_id, {"gross_motor": {"raw_score": 0, "t_score": 20}},
+        context={**context, "assessment_date": "2025-04-01"},
+    )
+    save_mullen_assessment(
+        patient_id, {domain: {} for domain in MULLEN_DOMAINS}, assessment_id=first_id,
+        context={**context, "confidence_level": None, "age_calculation": None},
+    )
+    workbook = load_workbook(export_patient_workbook(tmp_path / "history.xlsx"))
+    try:
+        def records(sheet):
+            values = workbook[sheet].iter_rows(values_only=True)
+            headers = next(values)
+            return [dict(zip(headers, row)) for row in values]
+        summaries = {row["id"]: row for row in records("Mullen Assessment")}
+        assert set(summaries) == {first_id, second_id}
+        assert summaries[first_id]["assessment_number"] == 1
+        assert summaries[second_id]["assessment_number"] == 2
+        scores = records("Mullen Scores")
+        for row in scores:
+            assert row["patient_id"] == patient_id
+            if row["mullen_assessments_id"] == first_id:
+                assert row["assessment_number"] == 1
+                assert row["date_completed"] == "2025-03-01"
+                for field in ("raw_score", "t_score", "band_of_error", "percentile_rank", "descriptive_category", "age_equivalence"):
+                    assert row[field] is None
+            else:
+                assert row["assessment_number"] == 2
+                assert row["date_completed"] == "2025-04-01"
+                assert row["raw_score"] == 0
+                assert row["t_score"] == 20
+    finally:
+        workbook.close()
+
+
 @pytest.mark.parametrize("existing_workbook", [False, True])
 def test_failed_export_preserves_destination_and_does_not_log(
     temp_database, tmp_path, monkeypatch, existing_workbook

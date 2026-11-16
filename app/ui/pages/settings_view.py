@@ -90,8 +90,6 @@ class SettingsView(QWidget):
 
         title = QLabel("Settings")
         title.setObjectName("PageTitle")
-        subtitle = QLabel("Adjust local preferences for this EDC workspace.")
-        subtitle.setObjectName("Muted")
 
         preferences_card = QFrame()
         preferences_card.setObjectName("SettingsCard")
@@ -133,7 +131,6 @@ class SettingsView(QWidget):
         self.status_label.setObjectName("SettingsStatus")
 
         layout.addWidget(title)
-        layout.addWidget(subtitle)
         layout.addWidget(preferences_card)
         layout.addLayout(actions)
         layout.addWidget(self.status_label)

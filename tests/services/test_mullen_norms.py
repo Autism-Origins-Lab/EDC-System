@@ -28,7 +28,7 @@ def score(
     )
 
 
-# Raw score 3 across all columns and all four printed age bands.
+# Raw score 3 across all columns and all three supported age bands.
 # Expected T scores and percentiles were read separately from C1 and C2.
 @pytest.mark.parametrize(
     ("tested_on", "t_scores", "percentiles"),
@@ -36,7 +36,6 @@ def score(
         ("2025-01-01", (48, 51, 50, 52, 55), (42, 54, 50, 58, 69)),
         ("2025-03-01", (37, 38, 40, 44, 46), (10, 12, 16, 27, 34)),
         ("2025-04-01", (31, 33, 34, 35, 41), (3, 4, 5, 7, 18)),
-        ("2025-05-01", (24, 27, 28, 28, 34), (1, 1, 1, 1, 5)),
     ],
 )
 def test_source_examples_across_scales(tested_on, t_scores, percentiles):
@@ -55,8 +54,6 @@ def test_source_examples_across_scales(tested_on, t_scores, percentiles):
         ("2025-01-01", "2025-03-31", 6, 57),  # 2 months 30 days
         ("2025-01-01", "2025-04-01", 6, 50),  # 3 months 0 days
         ("2025-02-01", "2025-05-31", 6, 50),  # 3 months 30 days
-        ("2025-01-01", "2025-05-01", 6, 43),  # 4 months 0 days
-        ("2025-01-01", "2025-05-31", 6, 43),  # 4 months 30 days
     ],
 )
 def test_source_age_band_boundaries(birthday, tested_on, raw_score, expected):
@@ -64,7 +61,7 @@ def test_source_age_band_boundaries(birthday, tested_on, raw_score, expected):
 
 
 @pytest.mark.parametrize(
-    "tested_on", ["2025-01-01", "2025-03-01", "2025-04-01", "2025-05-01"]
+    "tested_on", ["2025-01-01", "2025-03-01", "2025-04-01"]
 )
 @pytest.mark.parametrize(
     ("domain", "width90", "width95"),
@@ -112,7 +109,7 @@ def test_c2_source_boundaries_and_repeated_ranks(t_score, percentile, category):
 
 def test_transcription_has_complete_printed_rows_and_c2_coverage():
     assert set(C2_PERCENTILES) == set(range(20, 81))
-    for table, max_raw in zip(C1_TABLE, (9, 10, 11, 12), strict=True):
+    for table, max_raw in zip(C1_TABLE, (9, 10, 11), strict=True):
         assert set(table["rows"]) == set(range(max_raw + 1))
         for values in table["rows"].values():
             assert len(values) == 5
@@ -127,9 +124,11 @@ def test_source_zero_floor_and_upper_limit():
         score(10)  # Do not extrapolate beyond the birth-to-1:30 printed table.
 
 
-def test_ages_beyond_supplied_c1_page_are_unsupported():
+@pytest.mark.parametrize("domain", SCALE_DOMAINS)
+@pytest.mark.parametrize("tested_on", ["2025-05-01", "2025-05-31", "2025-06-01"])
+def test_ages_from_four_months_are_outside_study_scope(domain, tested_on):
     with pytest.raises(scoring.MullenScoringError, match="No handbook age band"):
-        score(3, tested_on="2025-06-01")
+        score(3, tested_on=tested_on, domain=domain)
 
 
 @pytest.mark.parametrize("confidence", [None, True, 90.0, 80, 99, "95"])

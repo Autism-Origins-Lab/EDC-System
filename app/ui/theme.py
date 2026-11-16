@@ -482,9 +482,8 @@ QPushButton:checked {
 }
 """
 
-# PatientsView: donut caption, eligibility label, and legend labels.
+# PatientsView: donut caption and legend labels.
 PATIENTS_DONUT_CAPTION_STYLESHEET = "color: #666666; font-size: 11px; font-weight: bold;"
-PATIENTS_ELIGIBILITY_LABEL_STYLESHEET = "font-weight: bold; color: #120713;"
 PATIENTS_LEGEND_TEXT_STYLESHEET = "color: #1a1a1a; font-size: 13px;"
 
 

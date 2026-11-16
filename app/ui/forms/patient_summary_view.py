@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 
 from app.database.repositories.forms import (
     get_mullen_assessment,
-    get_mullen_assessment_context,
+    list_mullen_assessments,
     get_telephone_screening,
     save_telephone_screening,
 )
@@ -121,51 +121,43 @@ class PatientSummaryView(QWidget):
         self.screener_input.setText(screening.get("screener") or "")
         self.refresh_answers()
 
+    def _mullen_answers(self, view):
+        rows = []
+        summaries = list_mullen_assessments(self.patient_id)
+        if not summaries:
+            return [(f"{' '.join(label.split())} / Raw score", None) for _, label in view.scales]
+        fields = (
+            ("raw_score", "Raw score"), ("t_score", "T score"),
+            ("band_of_error", "Band of error (+/-)"), ("percentile_rank", "Percentile rank"),
+            ("descriptive_category", "Descriptive category"), ("age_equivalence", "Age equivalent"),
+        )
+        for summary in summaries:
+            completed = format_date(summary["assessment_date"]) or "Date not recorded"
+            prefix = f"Mullen #{summary['assessment_number']} — {completed} / "
+            rows.extend([
+                (prefix + "Date completed", format_date(summary["assessment_date"])),
+                (prefix + "Date of birth used", format_date(summary["scoring_date_of_birth"])),
+                (prefix + "Confidence level", f"{summary['confidence_level']}%"
+                 if summary["confidence_level"] else None),
+                (prefix + "Age calculation", {
+                    "calendar": "Calendar months", "30_day_borrow": "30-day borrowing",
+                }.get(summary["age_calculation"])),
+            ])
+            scores = get_mullen_assessment(self.patient_id, summary["id"])
+            for domain, label in view.scales:
+                scale = scores.get(domain, {})
+                for field, title in fields:
+                    value = scale.get(field)
+                    if field == "raw_score" and value is None:
+                        value = "Not administered"
+                    rows.append((prefix + f"{' '.join(label.split())} / {title}", value))
+        return rows
+
     def refresh_answers(self):
         self.answers = []
         for index, view in enumerate(self.form_views):
             if index == 6:
-                context = get_mullen_assessment_context(self.patient_id)
-                rows = [
-                    (
-                        "Date of birth used",
-                        format_date(context.get("scoring_date_of_birth")),
-                    ),
-                    (
-                        "Assessment date",
-                        format_date(context.get("assessment_date")),
-                    ),
-                    (
-                        "Confidence level",
-                        f"{context['confidence_level']}%"
-                        if context.get("confidence_level")
-                        else None,
-                    ),
-                    (
-                        "Age calculation",
-                        {
-                            "calendar": "Calendar months",
-                            "30_day_borrow": "30-day borrowing",
-                        }.get(context.get("age_calculation")),
-                    ),
-                ]
-                scores = get_mullen_assessment(self.patient_id)
-                fields = (
-                    ("raw_score", "Raw score"),
-                    ("t_score", "T score"),
-                    ("band_of_error", "Band of error (+/-)"),
-                    ("percentile_rank", "Percentile rank"),
-                    ("descriptive_category", "Descriptive category"),
-                    ("age_equivalence", "Age equivalent"),
-                )
-                for domain, label in view.scales:
-                    for field, title in fields:
-                        rows.append(
-                            (
-                                f"{' '.join(label.split())} / {title}",
-                                scores.get(domain, {}).get(field),
-                            )
-                        )
+                rows = self._mullen_answers(view)
             elif index == 7:
                 videos = list_patient_videos(self.patient_id)
                 rows = []

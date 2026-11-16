@@ -1,4 +1,4 @@
-from PySide6.QtCore import QRegularExpression, Qt
+from PySide6.QtCore import QRegularExpression, QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from app.database.repositories.forms import (
     get_mullen_assessment,
     get_mullen_assessment_context,
+    list_mullen_assessments,
     save_mullen_assessment,
 )
 from app.database.repositories.patients import get_patient
@@ -38,11 +39,18 @@ from app.ui.theme import (
 
 
 class MullenView(QWidget):
+    summary_loaded = Signal()
+
     def __init__(self, patient_id: int, preferences: dict | None = None):
         super().__init__()
 
         self.patient_id = patient_id
         self._loading = False
+        self.assessment_id = None
+        self._initialized = False
+        self._new_requested = False
+        self._saved_state = ()
+        self.save_handler = None
         self.preferences = preferences or load_preferences()
 
         layout = QVBoxLayout(self)
@@ -57,12 +65,22 @@ class MullenView(QWidget):
 
         subtitle = QLabel(
             "Enter raw scores to fill T scores, error widths, percentiles, and categories. "
-            "The supplied tables cover birth through 4 months, 30 days."
+            "Automatic scoring covers birth through 3 months, 30 days."
         )
         subtitle.setObjectName("Muted")
         subtitle.setStyleSheet(MULLEN_SUBTITLE_STYLESHEET)
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
+
+        summary_row = QHBoxLayout()
+        summary_row.addWidget(QLabel("Summary"))
+        self.assessment_combo = QComboBox()
+        self.assessment_combo.setAccessibleName("Mullen summary")
+        summary_row.addWidget(self.assessment_combo, 1)
+        self.new_summary_button = QPushButton("New summary")
+        self.new_summary_button.clicked.connect(self.new_summary)
+        summary_row.addWidget(self.new_summary_button)
+        layout.addLayout(summary_row)
 
         context_form = QFormLayout()
         self.date_of_birth_input = QLineEdit()
@@ -76,7 +94,7 @@ class MullenView(QWidget):
         context_form.addRow("Date of birth used", dob_row)
 
         self.assessment_date_input = DateInput()
-        context_form.addRow("Assessment date", self.assessment_date_input)
+        context_form.addRow("Date completed (required)", self.assessment_date_input)
         self.confidence_combo = QComboBox()
         self.confidence_combo.addItem("Select confidence", None)
         self.confidence_combo.addItem("90%", 90)
@@ -91,7 +109,8 @@ class MullenView(QWidget):
         self.age_label = QLabel()
         layout.addWidget(self.age_label)
         coverage_note = QLabel(
-            "Automatic scoring is available from birth through 4 months, 30 days."
+            "Automatic scoring is available from birth through 3 months, 30 days. "
+            "Leave raw scores blank for scales not administered."
         )
         coverage_note.setWordWrap(True)
         layout.addWidget(coverage_note)
@@ -151,7 +170,9 @@ class MullenView(QWidget):
 
         for row in range(len(self.scales)):
             # Raw Score
-            raw_input = self.create_input(numeric=True)
+            raw_input = self.create_input(placeholder="Not administered", numeric=True)
+            raw_input.setMinimumWidth(raw_input.fontMetrics().horizontalAdvance("Not administered") + 40)
+            raw_input.setToolTip("Leave blank if not administered. Enter 0 for a raw score of zero.")
             self.score_table.setCellWidget(row, 1, raw_input)
             self.raw_score_inputs[row] = raw_input
 
@@ -209,8 +230,9 @@ class MullenView(QWidget):
             0, QHeaderView.ResizeMode.ResizeToContents
         )
         horizontal_header.setSectionResizeMode(
-            1, QHeaderView.ResizeMode.ResizeToContents
+            1, QHeaderView.ResizeMode.Fixed
         )
+        self.score_table.setColumnWidth(1, self.raw_score_inputs[0].minimumWidth() + 44)
         horizontal_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         horizontal_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         horizontal_header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
@@ -224,7 +246,7 @@ class MullenView(QWidget):
         layout.addWidget(self.score_table, 1)
 
         self.save_button = QPushButton("Save Mullen Scores")
-        self.save_button.clicked.connect(self.save)
+        self.save_button.clicked.connect(lambda: self.save())
 
         self.save_button.setMinimumHeight(42)
         self.save_button.setObjectName("PrimaryButton")
@@ -233,6 +255,7 @@ class MullenView(QWidget):
         layout.addWidget(self.save_button, alignment=Qt.AlignmentFlag.AlignRight)
 
         self.load_existing_data()
+        self.assessment_combo.currentIndexChanged.connect(self._select_summary)
         for inputs in (
             self.t_score_inputs,
             self.error_inputs,
@@ -255,24 +278,31 @@ class MullenView(QWidget):
         self.date_of_birth_input.setText(format_date(patient.get("date_of_birth")))
 
     def collect_context(self) -> dict:
-        if not self.date_of_birth_input.text().strip():
+        has_raw_scores = any(field.text().strip() for field in self.raw_score_inputs.values())
+        if has_raw_scores and not self.date_of_birth_input.text().strip():
             raise MullenScoringError(
                 "Save the date of birth in Overview, then choose Use Overview DOB."
             )
         if not self.assessment_date_input.text().strip():
-            raise MullenScoringError(f"Enter the assessment date as {DATE_FORMAT}.")
-        birthday = parse_date(self.date_of_birth_input.text())
+            raise MullenScoringError(f"Enter Date completed as {DATE_FORMAT}.")
+        birthday = (
+            parse_date(self.date_of_birth_input.text())
+            if self.date_of_birth_input.text().strip() else None
+        )
         tested_on = parse_date(self.assessment_date_input.text())
         confidence = self.confidence_combo.currentData()
         convention = self.age_calculation_combo.currentData()
-        if confidence is None:
+        if birthday is not None and tested_on < birthday:
+            raise MullenScoringError("Assessment date cannot precede date of birth.")
+        if has_raw_scores and confidence is None:
             raise MullenScoringError("Select a confidence level: 90% or 95%.")
-        if convention is None:
+        if has_raw_scores and convention is None:
             raise MullenScoringError(
                 "Select the age calculation convention specified by your handbook."
             )
-        months, days = calculate_age(birthday, tested_on, convention=convention)
-        self.age_label.setText(f"Age at assessment: {months} months, {days} days")
+        if birthday is not None and convention is not None:
+            months, days = calculate_age(birthday, tested_on, convention=convention)
+            self.age_label.setText(f"Age at assessment: {months} months, {days} days")
         return {
             "assessment_date": tested_on,
             "scoring_date_of_birth": birthday,
@@ -352,9 +382,110 @@ class MullenView(QWidget):
 
         return data
 
+    def input_widgets(self) -> list:
+        return [
+            self.date_of_birth_input, self.assessment_date_input,
+            self.confidence_combo, self.age_calculation_combo,
+            *self.raw_score_inputs.values(), *self.t_score_inputs.values(),
+            *self.error_inputs.values(), *self.percentile_inputs.values(),
+            *self.category_inputs.values(), *self.age_equivalent_inputs.values(),
+        ]
+
+    def input_state(self) -> tuple:
+        return (
+            ("summary", (self.assessment_id, self._new_requested)),
+            *(("combo", field.currentData()) if isinstance(field, QComboBox)
+              else ("line", field.text()) for field in self.input_widgets()),
+        )
+
+    @property
+    def saved_input_state(self) -> tuple:
+        return self._saved_state
+
+    def has_unsaved_changes(self) -> bool:
+        return self.input_state() != self._saved_state
+
+    def restore_input_state(self, state: tuple) -> None:
+        self._loading = True
+        try:
+            self.assessment_id, self._new_requested = state[0][1]
+            for field, (_kind, value) in zip(self.input_widgets(), state[1:], strict=True):
+                if isinstance(field, QComboBox):
+                    field.setCurrentIndex(max(0, field.findData(value)))
+                else:
+                    field.setText(value)
+            self._refresh_selector()
+        finally:
+            self._loading = False
+
+    def _refresh_selector(self) -> None:
+        with QSignalBlocker(self.assessment_combo):
+            self.assessment_combo.clear()
+            summaries = list_mullen_assessments(self.patient_id)
+            for summary in summaries:
+                completed = format_date(summary["assessment_date"]) or "Date not recorded"
+                self.assessment_combo.addItem(
+                    f"Mullen #{summary['assessment_number']} — {completed}", summary["id"]
+                )
+            if self.assessment_id is None:
+                self.assessment_combo.addItem("New summary (unsaved)", None)
+            self.assessment_combo.setCurrentIndex(
+                self.assessment_combo.findData(self.assessment_id)
+            )
+
+    def _confirm_pending_changes(self) -> bool:
+        if not self.has_unsaved_changes():
+            return True
+        choice = QMessageBox.question(
+            self, "Unsaved Mullen summary", "Save changes to this summary before continuing?",
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel,
+        )
+        if choice == QMessageBox.StandardButton.Cancel:
+            return False
+        if choice == QMessageBox.StandardButton.Save:
+            return self.save_handler() if self.save_handler else self.save()
+        return choice == QMessageBox.StandardButton.Discard
+
+    def _select_summary(self, index: int) -> None:
+        if self._loading:
+            return
+        target_id = self.assessment_combo.itemData(index)
+        if target_id == self.assessment_id:
+            return
+        # Keep the selected label consistent if switching is cancelled or saving fails.
+        with QSignalBlocker(self.assessment_combo):
+            self.assessment_combo.setCurrentIndex(self.assessment_combo.findData(self.assessment_id))
+        if self._confirm_pending_changes():
+            self.assessment_id = target_id
+            self._new_requested = False
+            self._load_summary()
+
+    def new_summary(self) -> None:
+        if not self._confirm_pending_changes():
+            return
+        self.assessment_id = None
+        self._new_requested = False
+        self._load_summary()
+        self._new_requested = True
+        self.summary_loaded.emit()
+        self.assessment_date_input.setFocus()
+
     def load_existing_data(self) -> None:
-        data = get_mullen_assessment(self.patient_id)
-        context = get_mullen_assessment_context(self.patient_id)
+        summaries = list_mullen_assessments(self.patient_id)
+        if not self._initialized or (
+            self.assessment_id is None and not self._new_requested and not self.has_answers()
+        ):
+            self.assessment_id = summaries[0]["id"] if summaries else None
+        self._initialized = True
+        self._load_summary()
+
+    def _load_summary(self) -> None:
+        data = get_mullen_assessment(self.patient_id, self.assessment_id) if self.assessment_id else {}
+        context = (
+            get_mullen_assessment_context(self.patient_id, self.assessment_id)
+            if self.assessment_id else {}
+        )
         patient = get_patient(self.patient_id) or {}
 
         input_fields = {
@@ -387,6 +518,7 @@ class MullenView(QWidget):
                 for field, row_inputs in input_fields.items():
                     value = scores.get(field)
                     row_inputs[row].setText("" if value is None else str(value))
+            self._refresh_selector()
         finally:
             self._loading = False
         _, error = self._context_status()
@@ -396,6 +528,9 @@ class MullenView(QWidget):
             error
             or "Saved scores loaded. Editing raw scores or scoring options recalculates results."
         )
+        self._new_requested = False
+        self._saved_state = self.input_state()
+        self.summary_loaded.emit()
 
     def has_answers(self) -> bool:
         return bool(
@@ -407,6 +542,10 @@ class MullenView(QWidget):
         )
 
     def save(self, *, show_confirmation=True) -> bool:
+        # An untouched optional section creates no summary. Explicit new summaries
+        # and existing summaries must pass date validation even with no scores.
+        if self.assessment_id is None and not self._new_requested and not self.has_answers():
+            return True
         errors = self.recalculate_scores()
         if errors:
             QMessageBox.warning(
@@ -424,8 +563,12 @@ class MullenView(QWidget):
             )
             return False
 
-        save_mullen_assessment(self.patient_id, data, context=self.collect_context())
+        self.assessment_id = save_mullen_assessment(
+            self.patient_id, data, context=self.collect_context(), assessment_id=self.assessment_id
+        )
+        self._new_requested = False
         if show_confirmation:
+            self.load_existing_data()
             QMessageBox.information(
                 self,
                 "Saved",

@@ -36,6 +36,12 @@ def export_patient_workbook(output_path: Path) -> Path:
             with pd.ExcelWriter(temporary_path, engine="openpyxl") as writer:
                 for sheet_name, table_name in EXPORT_SHEETS.items():
                     dataframe = pd.read_sql_query(f"SELECT * FROM {table_name}", connection)
+                    if table_name == "mullen_scores":
+                        summaries = pd.read_sql_query(
+                            "SELECT id AS mullen_assessments_id, patient_id, assessment_number, "
+                            "assessment_date AS date_completed FROM mullen_assessments", connection,
+                        )
+                        dataframe = dataframe.merge(summaries, on="mullen_assessments_id", how="left")
                     dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
 
             connection.execute(

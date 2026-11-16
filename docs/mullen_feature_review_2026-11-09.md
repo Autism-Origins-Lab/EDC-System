@@ -14,6 +14,14 @@ There are **eight findings: three high priority and five medium priority**. Addr
 
 **Address:** Restore the fourth band from the source scan and verify every row independently. Do not infer the missing table from neighboring ages or a few test expectations. If its absence is intentional, revise the advertised coverage and explicitly support how affected assessments should be recorded. The original scans were not rechecked during this review.
 
+**Resolution — November 16, 2026:** The study owner confirmed that the 4-month
+band was removed intentionally. Supported scoring ends at 3 months 30 days.
+The UI and scoring documentation now reflect that limit, and regression tests
+expect 4:0 and 4:30 to be rejected rather than scored. Populated out-of-scope
+assessments remain blocked from saving; an untouched blank Mullen section can
+be skipped without creating scores. The historical reproduction and test counts
+above describe the original review, before this scope clarification.
+
 ## 2. High — clearing a saved assessment reports success but restores old answers
 
 **Location:** `app/ui/dialogs/patient_detail_view.py:569–570,591`; `app/ui/forms/mullen_view.py:400–407`.
@@ -23,6 +31,16 @@ The workspace skips all Mullen persistence whenever `has_answers()` is false. Th
 **Reproduction:** Save Gross Motor raw `3` with valid context. Clear the assessment date, reset both selectors, and clear all raw scores and age equivalents. `has_answers()` returns false; `save_current_section()` returns true; raw `3` immediately reappears and remains in the database.
 
 **Address:** Distinguish untouched empty sections from previously saved sections that were cleared. Persist clearing scores and context atomically, or provide an explicit “Clear assessment” action. Verify that save, reopen, review, and export all remain empty afterward.
+
+**Resolution — November 16, 2026:** Replaced the single-summary workflow with
+separate numbered summaries per patient. New summaries start blank; the
+selector identifies each by number and completion date, and reopening selects
+the most recently saved summary. A completion date is required to save. Any
+or all raw scores may be blank, representing "Not administered"; saving those
+blanks clears the selected summary's scores atomically with its scoring options.
+Erasing the completion date blocks saving and leaves the draft visible.
+An untouched optional section still creates no record. Review and export now
+include every saved summary, with blank numeric export cells preserved.
 
 ## 3. High — legacy records load but cannot pass Save and Continue unchanged
 

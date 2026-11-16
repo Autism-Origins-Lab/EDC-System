@@ -4,10 +4,8 @@ from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from app.ui.theme import METRIC_CHART_HEIGHT
 
-
 DONUT_PENDING_COLOR = "#D00B60"
 DONUT_READY_COLOR = "#08AEA9"
-DONUT_EDGE_COLOR = "#5C5C5C"
 
 DONUT_TRACK_COLOR = "#1a1a1a"
 DONUT_CENTER_COLOR = "#1a1a1a"

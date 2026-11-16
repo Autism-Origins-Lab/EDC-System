@@ -69,7 +69,7 @@ def test_progress_steps_jump_and_save_advances_after_persisting(workspace, qtbot
     assert view.progress.steps[0].property("stepState") == "saved"
     assert view.progress.steps[1].property("stepState") == "current"
     assert view.progress.steps[2].property("stepState") == "upcoming"
-    assert view.step_label.text() == "Step 2 of 9"
+    assert view.progress.accessibleDescription() == "Step 2 of 9: Screening"
     assert not view.has_unsaved_changes()
     assert view.save_and_continue()
     assert view.screening_questionnaire_view.child_name_input.text() == "Avery Example"
@@ -243,7 +243,7 @@ def test_summary_contains_answers_and_preserves_zero_and_no(workspace):
         dict(answers["Patient overview"])["Participant / Child name"]
         == "Avery <Example>"
     )
-    assert dict(answers["Mullen assessment"])["Gross Motor / Raw score"] == "0"
+    assert dict(answers["Mullen assessment"])["Mullen #1 — 03-01-2025 / Gross Motor / Raw score"] == "0"
     assert dict(answers["Medical history"])["Seen neurologist"] == "No"
     assert view.summary_view.screener_input.text() == "Jordan Staff"
     assert view.save_button.isEnabled()

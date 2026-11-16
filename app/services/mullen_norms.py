@@ -6,6 +6,7 @@ SCALE_DOMAINS = (
 "expressive_language",
 )
 
+# Study scope intentionally ends at 3 months, 30 days; the 4-month band is excluded.
 C1_TABLE = (
     {
         "min_age": (0, 0),

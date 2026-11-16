@@ -124,7 +124,7 @@ def main() -> int:
         manager.start()
         try:
             window = MainWindow(preferences)
-            window.show()
+            window.showMaximized()
             return application.exec()
         finally:
             manager.close()

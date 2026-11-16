@@ -55,32 +55,32 @@ SECTION_DETAILS = (
     (
         "Telephone screening",
         "Telephone screening",
-        "Record screening details, eligibility, and verbal consent.",
+        "",
     ),
     (
         "Screening questionnaire",
         "Screening questionnaire",
-        "Record participant and family contact information.",
+        "",
     ),
     (
         "Medical history",
         "Medical history",
-        "Record the participant's medical and developmental history.",
+        "",
     ),
     (
         "Family medical history",
         "Family medical history",
-        "Record relevant family diagnoses and sibling history.",
+        "",
     ),
     (
         "Procedure schedule",
         "Procedure schedule",
-        "Coordinate study procedures, staff, times, and rooms.",
+        "",
     ),
     (
         "Mullen assessment",
         "Mullen assessment",
-        "Enter developmental assessment scores for each scale.",
+        "",
     ),
     (
         "Video references",
@@ -90,7 +90,7 @@ SECTION_DETAILS = (
     (
         "Review",
         "Review answers",
-        "Check the saved answers and record the screener before completing the form.",
+        "",
     ),
 )
 
@@ -272,6 +272,8 @@ class PatientDetailView(QDialog):
             self._saved_states[index] = self._input_state(view)
             self._connect_input_tracking(view)
 
+        self.mullen_view.save_handler = self.save_current_section
+        self.mullen_view.summary_loaded.connect(self._mullen_summary_loaded)
         self._tracking_enabled = True
         self._show_step(0)
         self.refresh_data()
@@ -288,9 +290,6 @@ class PatientDetailView(QDialog):
         self.progress = FormProgress()
         self.progress.step_clicked.connect(self.jump_to_step)
         content.addWidget(self.progress)
-        self.step_label = QLabel()
-        self.step_label.setObjectName("WorkspaceMuted")
-        content.addWidget(self.step_label)
 
         heading_row = QHBoxLayout()
         heading_row.setSpacing(20)
@@ -356,18 +355,18 @@ class PatientDetailView(QDialog):
         if not self._fit_window_to_screen:
             return
         self._fit_window_to_screen = False
-        available = self.screen().availableGeometry()
+        parent = self.parentWidget()
+        screen = parent.screen() if parent is not None else self.screen()
+        available = screen.availableGeometry()
         border_width = self.frameGeometry().width() - self.width()
         border_height = self.frameGeometry().height() - self.height()
-        self.resize(
-            min(self.width(), available.width() - border_width),
-            min(self.height(), available.height() - border_height),
-        )
+        width = max(1, int(available.width() * 0.9) - border_width)
+        height = max(1, int(available.height() * 0.9) - border_height)
+        # Allow the scrollable workspace to fit smaller displays as well.
+        self.setMinimumSize(min(820, width), min(600, height))
+        self.resize(width, height)
         frame = self.frameGeometry()
-        frame.moveRight(min(frame.right(), available.right()))
-        frame.moveBottom(min(frame.bottom(), available.bottom()))
-        frame.moveLeft(max(frame.left(), available.left()))
-        frame.moveTop(max(frame.top(), available.top()))
+        frame.moveCenter(available.center())
         self.move(frame.topLeft())
 
     @staticmethod
@@ -411,6 +410,8 @@ class PatientDetailView(QDialog):
         ]
 
     def _input_state(self, view: QWidget) -> tuple:
+        if view is self.mullen_view:
+            return view.input_state()
         state = []
         for field in self._input_widgets(view):
             if isinstance(field, QLineEdit):
@@ -426,6 +427,14 @@ class PatientDetailView(QDialog):
         return tuple(state)
 
     def _restore_input_state(self, view: QWidget, state: tuple) -> None:
+        if view is self.mullen_view:
+            self._tracking_enabled = False
+            try:
+                view.restore_input_state(state)
+            finally:
+                self._tracking_enabled = True
+            self._update_save_status()
+            return
         self._tracking_enabled = False
         try:
             for field, (_kind, value) in zip(self._input_widgets(view), state):
@@ -443,8 +452,24 @@ class PatientDetailView(QDialog):
             self._tracking_enabled = True
         self._update_save_status()
 
+    def _mullen_summary_loaded(self) -> None:
+        self._saved_states[6] = self.mullen_view.saved_input_state
+        if self._tracking_enabled:
+            self._update_save_status()
+            self.refresh_button_state()
+
     def _reload_view(self, index: int, *, preserve_drafts: bool = False) -> None:
         view = self.views[index]
+        if view is self.mullen_view:
+            if preserve_drafts and view.has_unsaved_changes():
+                return
+            self._tracking_enabled = False
+            try:
+                view.load_existing_data()
+            finally:
+                self._tracking_enabled = True
+            self._saved_states[index] = view.saved_input_state
+            return
         loader = getattr(view, "load_existing_data", None)
         if not callable(loader):
             return
@@ -489,6 +514,7 @@ class PatientDetailView(QDialog):
         _navigation_label, title, subtitle = SECTION_DETAILS[index]
         self.section_title.setText(title)
         self.section_subtitle.setText(subtitle)
+        self.section_subtitle.setVisible(bool(subtitle))
 
     def _show_step(self, target_index: int) -> None:
         if target_index == self.review_index:
@@ -499,7 +525,6 @@ class PatientDetailView(QDialog):
         self.pages.setCurrentIndex(target_index)
         self._update_section_header(target_index)
         self.progress.set_current_step(target_index, self._completed_steps)
-        self.step_label.setText(f"Step {target_index + 1} of {len(self.views)}")
         self.back_button.setEnabled(target_index > 0)
         self._reset_save_button_text()
         self.refresh_button_state()
@@ -566,9 +591,7 @@ class PatientDetailView(QDialog):
             # Keep section writes and completion invalidation under one commit.
             # Refresh signals must not expose uncommitted patient data to the UI.
             with transaction() as connection, QSignalBlocker(view):
-                if view is self.mullen_view and not view.has_answers():
-                    result = True
-                elif view is self.video_references_view:
+                if view is self.video_references_view:
                     result = saver(show_confirmation=False, clear_after_save=False)
                 else:
                     result = saver(show_confirmation=False)

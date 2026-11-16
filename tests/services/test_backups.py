@@ -12,6 +12,7 @@ from app.database.repositories.forms import (
     get_medical_history,
     get_mullen_assessment,
     get_mullen_assessment_context,
+    list_mullen_assessments,
     save_medical_history,
     save_mullen_assessment,
     save_procedure_schedule,
@@ -113,6 +114,27 @@ def test_each_manual_backup_is_a_new_file_and_prior_state_stays_available(manage
     assert first.path != second.path
     assert inspect_backup(first.path).patient_count == 1
     assert inspect_backup(second.path).patient_count == 0
+
+
+def test_backup_restores_numbered_mullen_history_and_last_saved_selection(manager):
+    patient_id = create_patient("MULLEN-BACKUP-HISTORY")
+    context = {
+        "assessment_date": "2025-03-01", "scoring_date_of_birth": "2025-01-01",
+        "confidence_level": 90, "age_calculation": "calendar",
+    }
+    first = save_mullen_assessment(patient_id, {"gross_motor": {"raw_score": 3}}, context=context)
+    second = save_mullen_assessment(
+        patient_id, {"gross_motor": {}},
+        context={**context, "assessment_date": "2025-04-01", "confidence_level": None, "age_calculation": None},
+    )
+    save_mullen_assessment(patient_id, {"gross_motor": {"raw_score": 0}}, assessment_id=first)
+    expected = list_mullen_assessments(patient_id)
+    backup = manager.create_backup()
+    save_mullen_assessment(patient_id, {}, context=context)
+    manager.restore(backup.path)
+    assert list_mullen_assessments(patient_id) == expected
+    assert get_mullen_assessment(patient_id)["gross_motor"]["raw_score"] == 0
+    assert get_mullen_assessment(patient_id, second)["gross_motor"]["raw_score"] is None
 
 
 @pytest.mark.parametrize(

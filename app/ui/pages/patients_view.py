@@ -19,10 +19,10 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.repositories.patients import (
-    FILTER_NO,
-    FILTER_NOT_EVALUATED,
     FILTER_HIGH_RISK,
     FILTER_LOW_RISK,
+    FILTER_NO,
+    FILTER_NOT_EVALUATED,
     FILTER_NOT_EVALUATED_RISK,
     FILTER_YES,
     export_patients_to_csv,
@@ -30,7 +30,6 @@ from app.database.repositories.patients import (
 )
 from app.services.preferences import format_date, load_preferences
 from app.ui.components.donut_chart import (
-    DONUT_EDGE_COLOR,
     DONUT_PENDING_COLOR,
     DONUT_READY_COLOR,
     DonutChart,
@@ -42,7 +41,6 @@ from app.ui.dialogs.patient_detail_view import PatientDetailView
 from app.ui.theme import (
     DARK_PATIENTS_TABLE_STYLESHEET,
     PATIENTS_DONUT_CAPTION_STYLESHEET,
-    PATIENTS_ELIGIBILITY_LABEL_STYLESHEET,
     PATIENTS_FILTER_BUTTON_STYLESHEET,
     PATIENTS_LEGEND_TEXT_STYLESHEET,
     PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET,
@@ -52,7 +50,6 @@ from app.ui.theme import (
     patients_legend_dot_stylesheet,
     themed_stylesheet,
 )
-
 
 RISK_CHART_GAP = 40
 
@@ -94,11 +91,7 @@ class PatientsView(QWidget):
         title = QLabel("Patients")
         title.setObjectName("PageTitle")
 
-        subtitle = QLabel("View patient records, form progress, and scheduled follow-ups.")
-        subtitle.setObjectName("Muted")
-
         title_block.addWidget(title)
-        title_block.addWidget(subtitle)
 
         new_patient = QPushButton("+ Patient")
         new_patient.setStyleSheet(PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET)
@@ -131,14 +124,8 @@ class PatientsView(QWidget):
             DONUT_READY_COLOR, "Ready exports"
         )
 
-        #this is just a test to see what pending vs complete vs neither would look like.
-        self.edge_case_row, self.edge_case_label = self._legend_item(
-            DONUT_EDGE_COLOR, "(edge case)"
-        )
-        
         legend.addWidget(self.pending_forms_row)
         legend.addWidget(self.ready_exports_row)
-        legend.addWidget(self.edge_case_row)
         legend.addStretch()
 
         # Risk breakdown sits beside the donut with the same caption style, so
@@ -203,9 +190,6 @@ class PatientsView(QWidget):
         all_btn.clicked.connect(self.clear_filters)
         controls.addWidget(all_btn)
         self.all_btn = all_btn
-        self.eligibility_label = QLabel("Status: ")
-        self.eligibility_label.setStyleSheet(PATIENTS_ELIGIBILITY_LABEL_STYLESHEET)
-        controls.addWidget(self.eligibility_label)
 
         self.eligibility_filter_group = QButtonGroup(self)
         self.eligibility_filter_group.setExclusive(False)
@@ -239,10 +223,6 @@ class PatientsView(QWidget):
             self.eligibility_filter_group.addButton(btn)
             btn.clicked.connect(lambda checked, b=btn, val=filter_value: self.apply_eligibility_filter(b, val, checked))
             controls.addWidget(btn)
-
-        self.risk_label = QLabel("Risk: ")
-        self.risk_label.setStyleSheet(PATIENTS_ELIGIBILITY_LABEL_STYLESHEET)
-        controls.addWidget(self.risk_label)
 
         for btn, filter_value in risk_filter_configs:
             btn.setCheckable(True)
@@ -312,12 +292,9 @@ class PatientsView(QWidget):
         text_color = "#e5e7eb" if dark else "#1a1a1a"
         for caption in (self.donut_caption, self.risk_caption, self.monthly_caption):
             caption.setStyleSheet(f"color: {text_color}; font-size: 11px; font-weight: bold;")
-        for label in (self.eligibility_label, self.risk_label):
-            label.setStyleSheet(f"font-weight: bold; color: {text_color};")
         for label in (
             self.pending_forms_label,
             self.ready_exports_label,
-            self.edge_case_label,
         ):
             label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         if refresh and self.patients:
@@ -474,11 +451,8 @@ class PatientsView(QWidget):
  
     
 
-        other_forms = len(self.patients) - pending_forms - completed_forms
-
         self.pending_forms_label.setText(f"Pending forms: {pending_forms}")
         self.ready_exports_label.setText(f"Ready exports: {completed_forms}")
-        self.edge_case_label.setText(f"(edge case): {other_forms}")
 
         self.metrics_donut_chart.set_segments(
             [

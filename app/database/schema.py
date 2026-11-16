@@ -142,6 +142,8 @@ CREATE TABLE IF NOT EXISTS export_logs (
 CREATE TABLE IF NOT EXISTS mullen_assessments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id INTEGER NOT NULL,
+    assessment_number INTEGER NOT NULL DEFAULT 0,
+    saved_order INTEGER NOT NULL DEFAULT 0,
     assessment_date TEXT,
     scoring_date_of_birth TEXT,
     confidence_level INTEGER,

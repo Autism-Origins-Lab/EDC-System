@@ -12,6 +12,7 @@ from app.database.migrations.versions import (
     v006_patient_risk,
     v007_shared_patient_fields,
     v008_mullen_scoring_context,
+    v009_mullen_summaries,
 )
 
 MIGRATIONS = (
@@ -23,6 +24,7 @@ MIGRATIONS = (
     v006_patient_risk,
     v007_shared_patient_fields,
     v008_mullen_scoring_context,
+    v009_mullen_summaries,
 )
 
 CURRENT_SCHEMA_VERSION = MIGRATIONS[-1].VERSION

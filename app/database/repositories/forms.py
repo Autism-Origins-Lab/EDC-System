@@ -1,6 +1,6 @@
 from datetime import date
 
-from app.database.connection import get_connection
+from app.database.connection import get_connection, transaction
 from app.database.repositories.patients import (
     IDENTITY_FIELDS,
     _update_patient,
@@ -202,11 +202,22 @@ def _get_one_to_one_form(table_name: str, patient_id: int) -> dict | None:
     return dict(row) if row else None
 
 # Mullen Assessment
-def save_mullen_assessment(patient_id: int, data: dict, *, context: dict | None = None) -> None:
+def save_mullen_assessment(
+    patient_id: int, data: dict, *, context: dict | None = None,
+    assessment_id: int | None = None,
+) -> int:
+    """Create a summary, or update only the explicitly selected patient summary."""
     invalid_domains = set(data) - set(MULLEN_DOMAINS)
     if invalid_domains:
         invalid = ", ".join(sorted(invalid_domains))
         raise ValueError(f"Unknown Mullen domain(s): {invalid}")
+    for domain, score_data in data.items():
+        if not isinstance(score_data, dict):
+            raise TypeError(f"Scores for {domain} must be a dictionary.")
+        invalid_fields = set(score_data) - set(MULLEN_SCORE_FIELDS)
+        if invalid_fields:
+            invalid = ", ".join(sorted(invalid_fields))
+            raise ValueError(f"Unknown score field(s) for {domain}: {invalid}")
 
     context_fields = (
         "assessment_date", "scoring_date_of_birth", "confidence_level", "age_calculation"
@@ -216,45 +227,57 @@ def save_mullen_assessment(patient_id: int, data: dict, *, context: dict | None 
             raise ValueError("Mullen scoring context must include both dates, confidence, and age convention.")
         try:
             tested_on = date.fromisoformat(context["assessment_date"])
-            birthday = date.fromisoformat(context["scoring_date_of_birth"])
+            birthday = (
+                date.fromisoformat(context["scoring_date_of_birth"])
+                if context["scoring_date_of_birth"] else None
+            )
         except (TypeError, ValueError) as exc:
             raise ValueError("Mullen dates must use YYYY-MM-DD.") from exc
-        if tested_on < birthday:
+        if birthday is not None and tested_on < birthday:
             raise ValueError("Assessment date cannot precede date of birth.")
-        if type(context["confidence_level"]) is not int or context["confidence_level"] not in (90, 95):
+        has_raw_scores = any(scores.get("raw_score") is not None for scores in data.values())
+        confidence = context["confidence_level"]
+        if confidence is not None and (type(confidence) is not int or confidence not in (90, 95)):
             raise ValueError("Confidence level must be 90 or 95.")
-        if context["age_calculation"] not in ("calendar", "30_day_borrow"):
+        if context["age_calculation"] not in (None, "calendar", "30_day_borrow"):
             raise ValueError("Select a Mullen age calculation convention.")
+        if has_raw_scores and (birthday is None or confidence is None or context["age_calculation"] is None):
+            raise ValueError("Entered raw scores require date of birth, confidence, and age convention.")
 
-    with get_connection() as connection:
-        assessment = connection.execute(
-            """
-            SELECT id
-            FROM mullen_assessments
-            WHERE patient_id = ?
-            ORDER BY id
-            LIMIT 1
-            """,
-            (patient_id,),
+    with transaction() as connection:
+        if assessment_id is not None:
+            assessment = connection.execute(
+                "SELECT * FROM mullen_assessments WHERE id = ? AND patient_id = ?",
+                (assessment_id, patient_id),
+            ).fetchone()
+            if assessment is None:
+                raise ValueError("Mullen summary does not belong to this patient.")
+            if context is None and not assessment["assessment_date"]:
+                raise ValueError("Date completed is required.")
+        elif context is None:
+            raise ValueError("Date completed is required for a new Mullen summary.")
+
+        counters = connection.execute(
+            "SELECT COALESCE(MAX(assessment_number), 0) + 1 AS next_number, "
+            "COALESCE(MAX(saved_order), 0) + 1 AS next_order "
+            "FROM mullen_assessments WHERE patient_id = ?", (patient_id,),
         ).fetchone()
-
-        if assessment:
-            assessment_id = assessment["id"]
+        if assessment_id is not None:
             connection.execute(
                 """
                 UPDATE mullen_assessments
-                SET updated_at = CURRENT_TIMESTAMP
+                SET updated_at = CURRENT_TIMESTAMP, saved_order = ?
                 WHERE id = ?
                 """,
-                (assessment_id,),
+                (counters["next_order"], assessment_id),
             )
         else:
             cursor = connection.execute(
                 """
-                INSERT INTO mullen_assessments (patient_id)
-                VALUES (?)
+                INSERT INTO mullen_assessments (patient_id, assessment_number, saved_order)
+                VALUES (?, ?, ?)
                 """,
-                (patient_id,),
+                (patient_id, counters["next_number"], counters["next_order"]),
             )
             assessment_id = cursor.lastrowid
 
@@ -270,14 +293,6 @@ def save_mullen_assessment(patient_id: int, data: dict, *, context: dict | None 
                 continue
 
             score_data = data[domain]
-            if not isinstance(score_data, dict):
-                raise TypeError(f"Scores for {domain} must be a dictionary.")
-
-            invalid_fields = set(score_data) - set(MULLEN_SCORE_FIELDS)
-            if invalid_fields:
-                invalid = ", ".join(sorted(invalid_fields))
-                raise ValueError(f"Unknown score field(s) for {domain}: {invalid}")
-
             values = [score_data.get(field) for field in MULLEN_SCORE_FIELDS]
             existing_score = connection.execute(
                 """
@@ -321,9 +336,24 @@ def save_mullen_assessment(patient_id: int, data: dict, *, context: dict | None 
                     """,
                     [assessment_id, domain, *values],
                 )
+        return assessment_id
 
 
-def get_mullen_assessment(patient_id: int) -> dict:
+def list_mullen_assessments(patient_id: int) -> list[dict]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            "SELECT * FROM mullen_assessments WHERE patient_id = ? ORDER BY saved_order DESC, id DESC",
+            (patient_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_mullen_assessment(patient_id: int, assessment_id: int | None = None) -> dict:
+    if assessment_id is None:
+        summaries = list_mullen_assessments(patient_id)
+        if not summaries:
+            return {}
+        assessment_id = summaries[0]["id"]
     with get_connection() as connection:
         rows = connection.execute(
             """
@@ -331,21 +361,26 @@ def get_mullen_assessment(patient_id: int) -> dict:
             FROM mullen_scores ms
             JOIN mullen_assessments ma
               ON ma.id = ms.mullen_assessments_id
-            WHERE ma.patient_id = ?
+            WHERE ma.patient_id = ? AND ma.id = ?
             ORDER BY ms.id
             """,
-            (patient_id,),
+            (patient_id, assessment_id),
         ).fetchall()
 
     return {row["domain"]: dict(row) for row in rows}
 
 
-def get_mullen_assessment_context(patient_id: int) -> dict:
+def get_mullen_assessment_context(patient_id: int, assessment_id: int | None = None) -> dict:
+    if assessment_id is None:
+        summaries = list_mullen_assessments(patient_id)
+        if not summaries:
+            return {}
+        assessment_id = summaries[0]["id"]
     with get_connection() as connection:
         row = connection.execute(
             "SELECT assessment_date, scoring_date_of_birth, confidence_level, age_calculation "
-            "FROM mullen_assessments WHERE patient_id = ? ORDER BY id LIMIT 1",
-            (patient_id,),
+            "FROM mullen_assessments WHERE patient_id = ? AND id = ?",
+            (patient_id, assessment_id),
         ).fetchone()
     return dict(row) if row else {}
 
@@ -437,7 +472,7 @@ PENDING_FORM_TABLES = {
     "Screening Questionnaire": ("screening_questionnaires", "Screening Questionnaire"),
     "Medical History": ("medical_histories", "Medical History"),
     "Family Medical History": ("family_medical_histories", "Family Medical History"),
-    "Mullen Assessment":("mullen_assessment", "Mullen Assessment")
+    "Mullen Assessment":("mullen_assessments", "Mullen Assessment")
 }
 
 PROCEDURE_NAMES = ("Consents", "Recording", "Neuropsych")
