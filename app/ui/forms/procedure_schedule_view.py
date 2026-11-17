@@ -9,7 +9,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.database.repositories.forms import list_procedure_schedules, save_procedure_schedule
+from app.database.repositories.forms import (
+    list_procedure_schedules,
+    save_procedure_schedule,
+)
 
 PROCEDURES = ("Consents", "Recording", "Neuropsych")
 
@@ -41,7 +44,7 @@ class ProcedureScheduleView(QWidget):
 
         save_button = QPushButton("Save Procedure Schedule")
         save_button.setObjectName("PrimaryButton")
-        save_button.setCursor(Qt.PointingHandCursor)
+        save_button.setCursor(Qt.CursorShape.PointingHandCursor)
         save_button.clicked.connect(self.save)
 
         layout.addWidget(save_button)
@@ -60,7 +63,7 @@ class ProcedureScheduleView(QWidget):
             fields["research_assistant"].setText(row.get("research_assistant") or "")
             fields["room"].setText(row.get("room") or "")
 
-    def save(self) -> bool:
+    def save(self, *, show_confirmation=True) -> bool:
         for procedure_name, fields in self.rows.items():
             save_procedure_schedule(
                 self.patient_id,
@@ -72,5 +75,6 @@ class ProcedureScheduleView(QWidget):
                 },
             )
 
-        QMessageBox.information(self, "Saved", "Procedure schedule saved successfully.")
+        if show_confirmation:
+            QMessageBox.information(self, "Saved", "Procedure schedule saved successfully.")
         return True

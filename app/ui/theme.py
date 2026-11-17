@@ -43,23 +43,32 @@ QDialog#PatientWorkspace QGroupBox::title {
 QDialog#PatientWorkspace QGroupBox QWidget {
     background-color: transparent;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation {
-    background-color: #f6f7f9;
-    border: 1px solid #e5e7eb;
-    border-radius: 9px;
-    padding: 8px;
-    outline: 0;
+QDialog#PatientWorkspace QFrame#FormStep,
+QDialog#PatientWorkspace QWidget#FormStepTrack {
+    background: transparent;
+    border: 0;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item {
-    padding: 12px;
-    border-radius: 5px;
+QDialog#PatientWorkspace QLabel#FormStepTitle {
+    background: transparent;
+    color: #6b7280;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item:selected {
-    background-color: #eaf1ff;
-    color: #166AB8;
+QDialog#PatientWorkspace QLabel#FormStepNumber {
+    background-color: #ffffff;
+    color: #6b7280;
+    border: 2px solid #dfe4e1;
+    border-radius: 22px;
+    font-size: 20px;
+    font-weight: 600;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item:hover {
-    background-color: #F1F5F9;
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepTitle {
+    font-weight: 600;
+}
+QDialog#PatientWorkspace QFrame#FormConnector {
+    background-color: #dfe4e1;
+    border: 0;
+}
+QDialog#PatientWorkspace QFrame#FormConnector[edge="true"] {
+    background: transparent;
 }
 QDialog#PatientWorkspace QLineEdit,
 QDialog#PatientWorkspace QComboBox,
@@ -122,8 +131,37 @@ QDialog#PatientWorkspace QPushButton#WorkspaceSave {
 QDialog#PatientWorkspace QPushButton#WorkspaceSave:hover {
     background-color: #115492;
 }
-QDialog#PatientWorkspace QPushButton#WorkspaceClose:hover {
+QDialog#PatientWorkspace QPushButton#WorkspaceBack:hover {
     background-color: #eaf1ff;
+}
+QDialog#PatientWorkspace QPushButton:disabled,
+QDialog#PatientWorkspace QPushButton#WorkspaceSave:disabled {
+    background-color: #f6f7f9;
+    color: #6b7280;
+    border-color: #e5e7eb;
+}
+QDialog#PatientWorkspace QPushButton:focus {
+    border: 2px solid #166AB8;
+}
+QDialog#PatientWorkspace QPushButton#AnswerBubble {
+    background-color: #ffffff;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+    border-radius: 16px;
+    padding: 6px 18px;
+}
+QDialog#PatientWorkspace QPushButton#AnswerBubble:hover {
+    background-color: #eaf1ff;
+    border-color: #166AB8;
+}
+QDialog#PatientWorkspace QPushButton#AnswerBubble:checked {
+    background-color: #166AB8;
+    color: #ffffff;
+    border-color: #166AB8;
+    font-weight: 600;
+}
+QDialog#PatientWorkspace QPushButton#AnswerBubble:focus {
+    border: 2px solid #115492;
 }
 QDialog#PatientWorkspace QPushButton#WorkspaceDelete {
     color: #b42318;
@@ -132,11 +170,19 @@ QDialog#PatientWorkspace QPushButton#WorkspaceDelete {
 QDialog#PatientWorkspace QPushButton#WorkspaceDelete:hover {
     background-color: #fff1f0;
 }
-QDialog#PatientWorkspace QTableWidget {
+QDialog#PatientWorkspace QTableWidget,
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers {
     background-color: #ffffff;
     color: #1f2937;
     border: 1px solid #e5e7eb;
     gridline-color: #EDF2F7;
+}
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers::item {
+    padding: 6px;
+}
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers::item:selected {
+    background-color: #eaf1ff;
+    color: #1f2937;
 }
 QDialog#PatientWorkspace QHeaderView::section {
     background-color: #115492;
@@ -389,16 +435,22 @@ TOPBAR_STYLESHEET = "QFrame#TopBar { background-color: #166AB8; }"
 TOPBAR_SEARCH_STYLESHEET = "border-radius: 9999px;"
 
 
-# PatientsView: status palette used by the donut chart and legend.
-PATIENTS_PENDING_COLOR = "#D00B60"
-PATIENTS_READY_COLOR = "#08AEA9"
-PATIENTS_EDGE_COLOR = "#5C5C5C"
+# DonutChart colors -> app/ui/components/donut_chart.py with chart.
 
-# DonutChart: track and center text.
-DONUT_TRACK_COLOR = "#1a1a1a"
-DONUT_CENTER_COLOR = "#1a1a1a"
-DONUT_CENTER_FONT_POINT_SIZE = 14
-DONUT_CENTER_FONT_WEIGHT = QFont.Weight.Bold
+METRIC_CHART_HEIGHT = 140
+
+RISK_BAR_HIGH_COLOR = "#D4243E"
+RISK_BAR_LOW_COLOR = "#4CC1E1"
+RISK_BAR_UNKNOWN_COLOR = "#8A919C"
+RISK_BAR_TEXT_COLOR = "#1a1a1a"
+RISK_BAR_AXIS_COLOR = "#D1D5DB"
+DARK_RISK_BAR_HIGH_COLOR = RISK_BAR_HIGH_COLOR
+DARK_RISK_BAR_LOW_COLOR = RISK_BAR_LOW_COLOR
+DARK_RISK_BAR_UNKNOWN_COLOR = "#6B7280"
+DARK_RISK_BAR_TEXT_COLOR = "#e5e7eb"
+DARK_RISK_BAR_AXIS_COLOR = "#4b5563"
+
+MONTHLY_SCREENINGS_COLOR = "#6B4FD0"
 
 # PatientsView: new patient button.
 PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET = """
@@ -424,11 +476,14 @@ QPushButton:hover {
 QPushButton:pressed {
     background-color: #F1F5F9;
 }
+QPushButton:checked {
+    background-color: #B4B4B8;
+    border: 1px solid #848487;
+}
 """
 
-# PatientsView: donut caption, eligibility label, and legend labels.
+# PatientsView: donut caption and legend labels.
 PATIENTS_DONUT_CAPTION_STYLESHEET = "color: #666666; font-size: 11px; font-weight: bold;"
-PATIENTS_ELIGIBILITY_LABEL_STYLESHEET = "font-weight: bold; color: #120713;"
 PATIENTS_LEGEND_TEXT_STYLESHEET = "color: #1a1a1a; font-size: 13px;"
 
 
@@ -503,6 +558,38 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 """
 
 
+# PatientsView: page-level scroll area wrapping the dashboard and table.
+PATIENTS_PAGE_SCROLL_STYLESHEET = """
+QScrollArea#PatientsScroll,
+QWidget#PatientsContent {
+    background: transparent;
+    border: none;
+}
+
+QScrollArea#PatientsScroll QScrollBar:vertical {
+    border: none;
+    background: transparent;
+    width: 8px;
+    border-radius: 4px;
+}
+
+QScrollArea#PatientsScroll QScrollBar::handle:vertical {
+    background: #CBD5E0;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QScrollArea#PatientsScroll QScrollBar::handle:vertical:hover {
+    background: #A0AEC0;
+}
+
+QScrollArea#PatientsScroll QScrollBar::add-line:vertical,
+QScrollArea#PatientsScroll QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+"""
+
+
 # PatientDetailView: completion button states.
 
 def _patient_completion_button_stylesheet(color: str) -> str:
@@ -523,6 +610,11 @@ PATIENT_DETAIL_MARK_COMPLETE_STYLESHEET = _patient_completion_button_stylesheet(
 
 # SettingsView: option labels, checkboxes, combo boxes, and popup lists.
 SETTINGS_STYLESHEET = """
+QWidget#SettingsView QWidget#SettingsContent {
+    background-color: #f8fafc;
+}
+QWidget#SettingsView QLabel { color: #1f2937; }
+QWidget#SettingsView QLabel#BackupTitle { font-size: 15px; font-weight: 600; }
 QWidget#SettingsView QLabel#SettingsOptionLabel,
 QWidget#SettingsView QCheckBox#SettingsOptionCheckBox {
     color: #1f2937;
@@ -609,6 +701,10 @@ QMessageBox QLabel { color: #e5e7eb; }
 """
 
 DARK_SETTINGS_STYLESHEET = """
+QWidget#SettingsView QWidget#SettingsContent {
+    background-color: #111827;
+}
+QWidget#SettingsView QLabel { color: #e5e7eb; }
 QWidget#SettingsView QLabel#SettingsOptionLabel,
 QWidget#SettingsView QCheckBox#SettingsOptionCheckBox {
     color: #e5e7eb;
@@ -650,19 +746,56 @@ QDialog#PatientWorkspace QLineEdit,
 QDialog#PatientWorkspace QComboBox,
 QDialog#PatientWorkspace QTextEdit,
 QDialog#PatientWorkspace QPushButton,
-QDialog#PatientWorkspace QTableWidget {
+QDialog#PatientWorkspace QTableWidget,
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers {
     background-color: #1f2937;
     color: #e5e7eb;
     border-color: #4b5563;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation {
+QDialog#PatientWorkspace QLabel#FormStepTitle {
+    color: #9ca3af;
+}
+QDialog#PatientWorkspace QLabel#FormStepNumber {
+    background-color: #111827;
+    color: #9ca3af;
+    border-color: #4b5563;
+}
+QDialog#PatientWorkspace QFrame#FormConnector {
+    background-color: #4b5563;
+}
+QDialog#PatientWorkspace QFrame#FormConnector[edge="true"] {
+    background: transparent;
+}
+QDialog#PatientWorkspace QPushButton:disabled,
+QDialog#PatientWorkspace QPushButton#WorkspaceSave:disabled {
     background-color: #182235;
-    color: #e5e7eb;
+    color: #9ca3af;
     border-color: #374151;
 }
-QDialog#PatientWorkspace QListWidget#PatientNavigation::item:selected {
+QDialog#PatientWorkspace QPushButton#AnswerBubble {
+    background-color: #1f2937;
+    color: #d1d5db;
+    border-color: #4b5563;
+}
+QDialog#PatientWorkspace QPushButton#AnswerBubble:hover {
     background-color: #243b5d;
-    color: #93c5fd;
+    border-color: #60a5fa;
+}
+QDialog#PatientWorkspace QPushButton#AnswerBubble:checked {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+}
+QDialog#PatientWorkspace QPushButton#WorkspaceDelete {
+    color: #fca5a5;
+    border-color: #fca5a5;
+}
+QDialog#PatientWorkspace QPushButton#WorkspaceDelete:hover {
+    background-color: #3b2029;
+}
+QDialog#PatientWorkspace QTreeWidget#SummaryAnswers::item:selected {
+    background-color: #243b5d;
+    color: #e5e7eb;
 }
 QDialog#PatientWorkspace QComboBox QAbstractItemView,
 QDialog#PatientWorkspace QHeaderView::section {
@@ -707,6 +840,36 @@ QTableWidget#MullenScoreTable QComboBox {
 
 def themed_stylesheet(base: str, dark_override: str, theme: str) -> str:
     return f"{base}\n{dark_override}" if theme == "Dark" else base
+
+
+def shade(color: str, factor: float) -> str:
+    channels = (int(color[i : i + 2], 16) for i in (1, 3, 5))
+    return "#" + "".join(f"{round(channel * factor):02X}" for channel in channels)
+
+
+def form_step_stylesheet(accent: str, theme: str) -> str:
+    dark = theme == "Dark"
+    text = accent if dark else shade(accent, 0.75)
+    surface = "#111827" if dark else "#ffffff"
+    return f"""
+QDialog#PatientWorkspace QFrame#FormStep[stepState="saved"] QLabel#FormStepNumber {{
+    background-color: {accent};
+    color: #ffffff;
+    border-color: {accent};
+}}
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepNumber {{
+    background-color: {surface};
+    color: {text};
+    border: 3px solid {accent};
+}}
+QDialog#PatientWorkspace QFrame#FormStep[stepState="saved"] QLabel#FormStepTitle,
+QDialog#PatientWorkspace QFrame#FormStep[stepState="current"] QLabel#FormStepTitle {{
+    color: {text};
+}}
+QDialog#PatientWorkspace QFrame#FormConnector[filled="true"] {{
+    background-color: {accent};
+}}
+"""
 
 
 def application_stylesheet(theme: str) -> str:

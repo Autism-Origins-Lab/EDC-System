@@ -8,6 +8,10 @@ from app.database.repositories.forms import (
 )
 from app.database.repositories.patients import create_patient, list_patients
 
+MULLEN_CONTEXT = {
+    "assessment_date": "2025-03-01", "scoring_date_of_birth": "2025-01-01",
+    "confidence_level": 90, "age_calculation": "calendar",
+}
 
 def test_save_and_load_telephone_screening(temp_database):
     patient_id = create_patient("1001")
@@ -56,7 +60,7 @@ def test_save_mullen_assessment_stores_scores_by_domain(temp_database):
         "expressive_language": {"raw_score": 50},
     }
 
-    save_mullen_assessment(patient_id, scores)
+    save_mullen_assessment(patient_id, scores, context=MULLEN_CONTEXT)
 
     with get_connection() as connection:
         assessments = connection.execute(
@@ -86,9 +90,13 @@ def test_save_mullen_assessment_stores_scores_by_domain(temp_database):
 
 def test_save_mullen_assessment_updates_existing_domain(temp_database):
     patient_id = create_patient("1001")
-    save_mullen_assessment(patient_id, {"gross_motor": {"raw_score": 10}})
+    assessment_id = save_mullen_assessment(
+        patient_id, {"gross_motor": {"raw_score": 10}}, context=MULLEN_CONTEXT
+    )
 
-    save_mullen_assessment(patient_id, {"gross_motor": {"raw_score": 99}})
+    save_mullen_assessment(
+        patient_id, {"gross_motor": {"raw_score": 99}}, assessment_id=assessment_id
+    )
 
     with get_connection() as connection:
         assessment_count = connection.execute(
@@ -126,6 +134,7 @@ def test_get_mullen_assessment_returns_scores_by_domain(temp_database):
             },
             "visual_reception": {"raw_score": 20},
         },
+        context=MULLEN_CONTEXT,
     )
 
     result = get_mullen_assessment(patient_id)

@@ -1,4 +1,5 @@
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 import pandas as pd
 
@@ -11,23 +12,44 @@ EXPORT_SHEETS = {
     "Medical History": "medical_histories",
     "Family Medical History": "family_medical_histories",
     "Procedure Schedule": "procedure_schedules",
-    "Mullen Assesment": "mullen_assesment",
+    "Mullen Assessment": "mullen_assessments",
+    "Mullen Scores": "mullen_scores",
 }
 
 
 def export_patient_workbook(output_path: Path) -> Path:
+    """Export stored records, preserving the destination if workbook creation fails."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with get_connection() as connection:
-        with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-            for sheet_name, table_name in EXPORT_SHEETS.items():
-                dataframe = pd.read_sql_query(f"SELECT * FROM {table_name}", connection)
-                dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
+    # Close the temporary file before openpyxl opens it, including on Windows.
+    with NamedTemporaryFile(
+        dir=output_path.parent,
+        prefix=".edc-export-",
+        suffix=output_path.suffix,
+        delete=False,
+    ) as temporary_file:
+        temporary_path = Path(temporary_file.name)
 
-        connection.execute(
-            "INSERT INTO export_logs (output_path) VALUES (?)",
-            (str(output_path),),
-        )
+    try:
+        with get_connection() as connection:
+            with pd.ExcelWriter(temporary_path, engine="openpyxl") as writer:
+                for sheet_name, table_name in EXPORT_SHEETS.items():
+                    dataframe = pd.read_sql_query(f"SELECT * FROM {table_name}", connection)
+                    if table_name == "mullen_scores":
+                        summaries = pd.read_sql_query(
+                            "SELECT id AS mullen_assessments_id, patient_id, assessment_number, "
+                            "assessment_date AS date_completed FROM mullen_assessments", connection,
+                        )
+                        dataframe = dataframe.merge(summaries, on="mullen_assessments_id", how="left")
+                    dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
+
+            connection.execute(
+                "INSERT INTO export_logs (output_path) VALUES (?)",
+                (str(output_path),),
+            )
+            temporary_path.replace(output_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
     return output_path

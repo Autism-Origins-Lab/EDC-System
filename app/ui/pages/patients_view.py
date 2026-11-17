@@ -1,7 +1,8 @@
-from PySide6.QtCore import QRectF, Qt, Signal, Slot
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtCore import QEvent, Qt, Signal, Slot
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QButtonGroup,
     QFileDialog,
     QHBoxLayout,
@@ -10,7 +11,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
-    QSizePolicy,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -18,91 +19,39 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.repositories.patients import (
+    FILTER_HIGH_RISK,
+    FILTER_LOW_RISK,
     FILTER_NO,
     FILTER_NOT_EVALUATED,
+    FILTER_NOT_EVALUATED_RISK,
     FILTER_YES,
     export_patients_to_csv,
     list_patients,
 )
 from app.services.preferences import format_date, load_preferences
+from app.ui.components.donut_chart import (
+    DONUT_PENDING_COLOR,
+    DONUT_READY_COLOR,
+    DonutChart,
+)
+from app.ui.components.monthly_activity_chart import MonthlyActivityChart
+from app.ui.components.risk_bar_chart import RiskBarChart
 from app.ui.dialogs.new_patient_dialog import NewPatientDialog
 from app.ui.dialogs.patient_detail_view import PatientDetailView
 from app.ui.theme import (
     DARK_PATIENTS_TABLE_STYLESHEET,
-    DONUT_CENTER_COLOR,
-    DONUT_CENTER_FONT_POINT_SIZE,
-    DONUT_CENTER_FONT_WEIGHT,
-    DONUT_TRACK_COLOR,
     PATIENTS_DONUT_CAPTION_STYLESHEET,
-    PATIENTS_EDGE_COLOR,
-    PATIENTS_ELIGIBILITY_LABEL_STYLESHEET,
     PATIENTS_FILTER_BUTTON_STYLESHEET,
     PATIENTS_LEGEND_TEXT_STYLESHEET,
     PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET,
-    PATIENTS_PENDING_COLOR,
-    PATIENTS_READY_COLOR,
+    PATIENTS_PAGE_SCROLL_STYLESHEET,
     PATIENTS_TABLE_ITEM_COLOR,
     PATIENTS_TABLE_STYLESHEET,
     patients_legend_dot_stylesheet,
     themed_stylesheet,
 )
 
-
-class DonutChart(QWidget):
-    #just draw arcs with QPainter w/ PySide6. no difference in styling
-    def __init__(self):
-        super().__init__()
-        self._segments: list[tuple[str,int,str]] = []
-        self._track_color = DONUT_TRACK_COLOR
-        self._center_color = DONUT_CENTER_COLOR
-        self._center_value: int = 0    # this will be total # of patients
-        self.setMinimumSize(140,140)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-    def set_segments(self, segments: list[tuple[str,int,str]], center_value: int | None = None) -> None:
-            self._segments = segments
-            self._center_value = center_value if center_value is not None else sum(v for _, v, _ in segments)
-            self.update()
-
-    def paintEvent(self, event) -> None:
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            side = min(self.width(), self.height())
-            thickness = side * 0.18
-            margin = thickness/2+4
-            rect = QRectF(margin, margin, side-2*margin, side-2*margin)
-
-
-            denom = self._center_value if self._center_value > 0 else sum(value for _, value, _ in self._segments)
-            track_pen = QPen(QColor(self._track_color), thickness)
-            track_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-            painter.setPen(track_pen)
-            painter.drawArc(rect, 0, 360*16)
-
-            if denom > 0:
-                start_angle = 90*16
-                for _, value, color in self._segments:
-                    if value <= 0:
-                        continue
-                    span_angle = int(-(value/denom) * 360 * 16)
-                    pen = QPen(QColor(color), thickness)
-                    pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-                    painter.setPen(pen)
-                    painter.drawArc(rect, start_angle, span_angle)
-                    start_angle += span_angle
-            painter.setPen(QColor(self._center_color))
-            font = QFont(painter.font())
-            font.setPointSize(DONUT_CENTER_FONT_POINT_SIZE)
-            font.setWeight(DONUT_CENTER_FONT_WEIGHT)
-            painter.setFont(font)
-            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, str(self._center_value))
-            painter.end()
-
-    def set_theme(self, theme: str) -> None:
-        dark = theme == "Dark"
-        self._track_color = "#4b5563" if dark else DONUT_TRACK_COLOR
-        self._center_color = "#e5e7eb" if dark else DONUT_CENTER_COLOR
-        self.update()
+RISK_CHART_GAP = 40
 
 
 class PatientsView(QWidget):
@@ -114,10 +63,25 @@ class PatientsView(QWidget):
         self.patients: list[dict] = []
 
         self.current_sort = "Newest First"
+        self.current_risk_filter: str | None = None
         self.current_eligibility_filter: str | None = None
         self.current_search_text = ""
 
-        layout = QVBoxLayout(self)
+        # The whole page scrolls as one; the table grows to fit its rows instead of scrolling itself.
+        page_layout = QVBoxLayout(self)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("PatientsScroll")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setStyleSheet(PATIENTS_PAGE_SCROLL_STYLESHEET)
+        self.scroll_area.viewport().setAutoFillBackground(False)
+        content = QWidget()
+        content.setObjectName("PatientsContent")
+        self.scroll_area.setWidget(content)
+        page_layout.addWidget(self.scroll_area)
+
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(28, 28, 28, 18)
         layout.setSpacing(18)
 
@@ -127,11 +91,7 @@ class PatientsView(QWidget):
         title = QLabel("Patients")
         title.setObjectName("PageTitle")
 
-        subtitle = QLabel("View patient records, form progress, and scheduled follow-ups.")
-        subtitle.setObjectName("Muted")
-
         title_block.addWidget(title)
-        title_block.addWidget(subtitle)
 
         new_patient = QPushButton("+ Patient")
         new_patient.setStyleSheet(PATIENTS_NEW_PATIENT_BUTTON_STYLESHEET)
@@ -158,25 +118,52 @@ class PatientsView(QWidget):
         legend = QVBoxLayout()
         legend.setSpacing(10)
         self.pending_forms_row, self.pending_forms_label = self._legend_item(
-            PATIENTS_PENDING_COLOR, "Pending forms"
+            DONUT_PENDING_COLOR, "Pending forms"
         )
         self.ready_exports_row, self.ready_exports_label = self._legend_item(
-            PATIENTS_READY_COLOR, "Ready exports"
+            DONUT_READY_COLOR, "Ready exports"
         )
 
-        #this is just a test to see what pending vs complete vs neither would look like.
-        self.edge_case_row, self.edge_case_label = self._legend_item(
-            PATIENTS_EDGE_COLOR, "(edge case)"
-        )
-        
         legend.addWidget(self.pending_forms_row)
         legend.addWidget(self.ready_exports_row)
-        legend.addWidget(self.edge_case_row)
         legend.addStretch()
 
+        # Risk breakdown sits beside the donut with the same caption style, so
+        # the two summaries read as one row of metrics.
+        self.risk_bar_chart = RiskBarChart()
+        risk_block = QVBoxLayout()
+        risk_block.setSpacing(5)
+        risk_block.addWidget(self.risk_bar_chart)
+        self.risk_caption = QLabel("Familial risk")
+        self.risk_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.risk_caption.setStyleSheet(PATIENTS_DONUT_CAPTION_STYLESHEET)
+        risk_block.addWidget(self.risk_caption)
+
+        # The legend and bar chart share their own row so RISK_CHART_GAP is the
+        # exact gap between them, independent of the donut's spacing.
+        legend_and_risk = QHBoxLayout()
+        legend_and_risk.setSpacing(RISK_CHART_GAP)
+        legend_and_risk.addLayout(legend)
+        legend_and_risk.addLayout(risk_block)
+
+        # Monthly trend of screenings and new high/low risk patients, captioned
+        # like the other two charts.
+        self.monthly_chart = MonthlyActivityChart()
+        monthly_block = QVBoxLayout()
+        monthly_block.setSpacing(5)
+        monthly_block.addWidget(self.monthly_chart)
+        self.monthly_caption = QLabel("Monthly activity")
+        self.monthly_caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.monthly_caption.setStyleSheet(PATIENTS_DONUT_CAPTION_STYLESHEET)
+        monthly_block.addWidget(self.monthly_caption)
+
         metrics.addLayout(donut_block)
-        metrics.addLayout(legend)
-        metrics.addStretch()
+        metrics.addLayout(legend_and_risk)
+        metrics.addLayout(monthly_block)
+        # Stretch factor 1 sends all spare width to the right edge. Without it
+        # the legend rows (which contain their own stretch) widen to soak up
+        # that space, pushing the bar chart far away from the legend.
+        metrics.addStretch(1)
 
         controls = QHBoxLayout()
         controls.setSpacing(10)
@@ -196,35 +183,56 @@ class PatientsView(QWidget):
         self.sort_button.setMenu(sort_menu)
         controls.addWidget(self.sort_button)
 
-        self.eligibility_label = QLabel("Status: ")
-        self.eligibility_label.setStyleSheet(PATIENTS_ELIGIBILITY_LABEL_STYLESHEET)
-        controls.addWidget(self.eligibility_label)
+        all_btn = QPushButton("All")
+        all_btn.setCursor(Qt.PointingHandCursor)
+        all_btn.setObjectName("SecondaryButton")
+        all_btn.setStyleSheet(PATIENTS_FILTER_BUTTON_STYLESHEET)
+        all_btn.clicked.connect(self.clear_filters)
+        controls.addWidget(all_btn)
+        self.all_btn = all_btn
 
         self.eligibility_filter_group = QButtonGroup(self)
-        self.eligibility_filter_group.setExclusive(True)
-        all = QPushButton("All")
+        self.eligibility_filter_group.setExclusive(False)
         yes = QPushButton("Eligible")
         no = QPushButton("Ineligible")
         not_eval = QPushButton("Not Evaluated")
 
-        filter_configs = [
-            (all, None),
+        self.risk_filter_group = QButtonGroup(self)
+        self.risk_filter_group.setExclusive(False)
+        high = QPushButton("High Risk")
+        low = QPushButton("Low Risk")
+        noRisk = QPushButton("Unknown Risk")
+
+        risk_filter_configs = [
+            (high, FILTER_HIGH_RISK),
+            (low, FILTER_LOW_RISK),
+            (noRisk, FILTER_NOT_EVALUATED_RISK)
+        ]
+
+        eligibility_filter_configs = [
             (yes, FILTER_YES),
             (no, FILTER_NO),
             (not_eval, FILTER_NOT_EVALUATED)
         ]
-        self.all = all
 
-        for btn, filter_value in filter_configs:
+        for btn, filter_value in eligibility_filter_configs:
             btn.setCheckable(True)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet(PATIENTS_FILTER_BUTTON_STYLESHEET)
             btn.setObjectName("SecondaryButton")
             self.eligibility_filter_group.addButton(btn)
-            btn.clicked.connect(lambda _, val=filter_value: self.apply_eligibility_filter(val))
+            btn.clicked.connect(lambda checked, b=btn, val=filter_value: self.apply_eligibility_filter(b, val, checked))
+            controls.addWidget(btn)
+
+        for btn, filter_value in risk_filter_configs:
+            btn.setCheckable(True)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(PATIENTS_FILTER_BUTTON_STYLESHEET)
+            btn.setObjectName("SecondaryButton")
+            self.risk_filter_group.addButton(btn)
+            btn.clicked.connect(lambda checked, b=btn, val=filter_value: self.apply_risk_filter(b, val, checked))
             controls.addWidget(btn)
     
-        all.setChecked(True)
         controls.addStretch()
         export_csv_button = QPushButton("Export CSV")
         export_csv_button.setObjectName("SecondaryButton")
@@ -241,6 +249,8 @@ class PatientsView(QWidget):
             ["Subject ID", "Child Name", "Eligibility", "Screener", "Schedule Date", "Comment"]
         )
         self.table.verticalHeader().setVisible(False)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.table.viewport().installEventFilter(self)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -255,7 +265,12 @@ class PatientsView(QWidget):
         layout.addLayout(header)
         layout.addLayout(metrics)
         layout.addLayout(controls)
-        layout.addWidget(self.table, 1)
+        layout.addWidget(self.table)
+        layout.addStretch()
+        # Keep the page's minimum width, as before it was wrapped in a scroll area.
+        self.scroll_area.setMinimumWidth(
+            content.minimumSizeHint().width() + self.scroll_area.verticalScrollBar().sizeHint().width()
+        )
 
         self.apply_preferences(self.preferences, refresh=False)
         self.load_patients()
@@ -264,6 +279,8 @@ class PatientsView(QWidget):
         self.preferences = preferences.copy()
         dark = preferences["theme"] == "Dark"
         self.metrics_donut_chart.set_theme(preferences["theme"])
+        self.risk_bar_chart.set_theme(preferences["theme"])
+        self.monthly_chart.set_theme(preferences["theme"])
         self.table.setStyleSheet(
             themed_stylesheet(
                 PATIENTS_TABLE_STYLESHEET,
@@ -271,24 +288,31 @@ class PatientsView(QWidget):
                 preferences["theme"],
             )
         )
-        self.table.verticalHeader().setDefaultSectionSize(
-            34 if preferences["row_density"] == "Compact" else 48
-        )
+        self.table.verticalHeader().setDefaultSectionSize(34)
         text_color = "#e5e7eb" if dark else "#1a1a1a"
-        self.donut_caption.setStyleSheet(
-            f"color: {text_color}; font-size: 11px; font-weight: bold;"
-        )
-        self.eligibility_label.setStyleSheet(
-            f"font-weight: bold; color: {text_color};"
-        )
+        for caption in (self.donut_caption, self.risk_caption, self.monthly_caption):
+            caption.setStyleSheet(f"color: {text_color}; font-size: 11px; font-weight: bold;")
         for label in (
             self.pending_forms_label,
             self.ready_exports_label,
-            self.edge_case_label,
         ):
             label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
         if refresh and self.patients:
             self.update_table(self.patients)
+        self._fit_table_to_rows()
+
+    def eventFilter(self, watched, event) -> bool:
+        # Wheel over the table scrolls the page, since the table itself no longer scrolls.
+        if watched is self.table.viewport() and event.type() == QEvent.Type.Wheel:
+            QApplication.sendEvent(self.scroll_area.verticalScrollBar(), event)
+            return True
+        return super().eventFilter(watched, event)
+
+    def _fit_table_to_rows(self) -> None:
+        # Show every row so mouse-wheel scrolling over the table moves the page.
+        header_height = self.table.horizontalHeader().sizeHint().height()
+        rows_height = self.table.verticalHeader().length()
+        self.table.setFixedHeight(header_height + rows_height + 2 * self.table.frameWidth())
 
     def _legend_item(self, color: str, name: str) -> tuple[QWidget, QLabel]:
         row = QWidget()
@@ -310,7 +334,6 @@ class PatientsView(QWidget):
         text.setProperty("legend_name", name)
         return row, text
 
-
     def apply_sort(self, sort_choice: str) -> None: #applies the sorting lofic, this need to be applied to the new list returned by the signal in topbar.py
         self.current_sort = sort_choice
         self.load_patients()
@@ -319,20 +342,43 @@ class PatientsView(QWidget):
         self.current_search_text = search_text
         self.load_patients()
 
-    def apply_eligibility_filter(self, choice: str | None) -> None:
-        self.current_eligibility_filter = choice
+    def toggle_in_group(self, group: QButtonGroup, clicked_btn: QPushButton, checked: bool) -> bool:
+        if checked:
+            for b in group.buttons():
+                if b is not clicked_btn:
+                    b.setChecked(False)
+        return checked
+
+    def apply_eligibility_filter(self, btn, choice: str | None, checked: bool) -> None:
+        active = self.toggle_in_group(self.eligibility_filter_group, btn, checked)
+        self.current_eligibility_filter = choice if active else None
         self.load_patients()
+
+    def clear_filters(self) -> None:
+        self.current_eligibility_filter = None
+        self.current_risk_filter = None
+        for group in (self.eligibility_filter_group, self.risk_filter_group):
+            for b in group.buttons():
+                b.setChecked(False)
+        self.load_patients()
+
+
+    def apply_risk_filter(self, btn, choice: str | None, checked: bool) -> None:
+           active = self.toggle_in_group(self.risk_filter_group, btn, checked)
+           self.current_risk_filter = choice if active else None
+           self.load_patients()
 
     def load_patients(self) -> None:
         patients = list_patients(
             sort_by=self.current_sort,
             eligibility_filter=self.current_eligibility_filter,
+            risk_filter=self.current_risk_filter
         )
         if self.current_search_text:
             patients = self.filter_by_search(patients, self.current_search_text)
         self.update_table(patients)
 
-        # print("filter:", self.current_eligibility_filter, "| sort:", self.current_sort) #debugging
+        # print("filters:", self.current_eligibility_filter, " ", self.current_risk_filter, "| sort:", self.current_sort) #debugging
 
 
     @staticmethod
@@ -386,11 +432,7 @@ class PatientsView(QWidget):
                     patient.get("child_name") or "N/A",
                     patient.get("eligibility") or "Problem with eligibility",
                     patient.get("screener") or "N/A",
-                    format_date(
-                        patient.get("schedule_date"),
-                        self.preferences["date_format"],
-                    )
-                    or "N/A",
+                    format_date(patient.get("schedule_date")) or "N/A",
                     patient.get("comment") or "",
                 ]
 
@@ -405,22 +447,23 @@ class PatientsView(QWidget):
                 )
                 item.setData(Qt.UserRole, patient.get("id"))
                 self.table.setItem(row_index, column_index, item)
+        self._fit_table_to_rows()
  
     
 
-        other_forms = len(self.patients) - pending_forms - completed_forms
-
         self.pending_forms_label.setText(f"Pending forms: {pending_forms}")
         self.ready_exports_label.setText(f"Ready exports: {completed_forms}")
-        self.edge_case_label.setText(f"(edge case): {other_forms}")
 
         self.metrics_donut_chart.set_segments(
             [
-                ("Pending forms", pending_forms, PATIENTS_PENDING_COLOR),
-                ("Ready exports", completed_forms, PATIENTS_READY_COLOR),
+                ("Pending forms", pending_forms, DONUT_PENDING_COLOR),
+                ("Ready exports", completed_forms, DONUT_READY_COLOR),
             ],
             center_value=len(self.patients),
         )
+        # Same patient list as the donut and table, so all three always agree.
+        self.risk_bar_chart.set_patients(self.patients)
+        self.monthly_chart.set_patients(self.patients)
         
 
     def open_new_patient_dialog(self) -> None:
