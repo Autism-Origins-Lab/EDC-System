@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 
 from app.config import SLACK_BOT_TOKEN
 from app.database.repositories.patients import list_patients

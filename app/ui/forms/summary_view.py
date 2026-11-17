@@ -18,8 +18,31 @@ from PySide6.QtGui import QDesktopServices, QIcon
 
 from app.database.repositories.patients import list_patients
 from app.services.patient_pdf_export import build_patient_pdf
+from app.ui.theme import PATIENTS_TABLE_STYLESHEET
 
-
+CUSTOM_THEME = PATIENTS_TABLE_STYLESHEET + """
+            QListWidget::item:selected { 
+                background: #dbeafe; color: #1f2937; border: 1px solid #e5e7eb 
+            }
+            QListWidget::item:hover{ 
+                background: #f1f5f9; border: 1px solid #e5e7eb; 
+            }
+            QLabel[styleclass="custom"]{
+                font-size: 18px;
+                font-weight: bold;
+            }
+            QLabel[styleclass="custom1"]{
+                background-color: #115492;
+                color: #FCFCFD;
+                font-weight: bold;
+                font-size: 12px;
+                text-transform: uppercase;
+                padding: 10px 12px;
+                border: none;
+                border-bottom: 2px solid #E2E8F0;
+                border-right: 1px solid #EDF2F7;
+            }
+"""
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 
 def _icon(name: str) -> QIcon:
@@ -49,12 +72,16 @@ class PatientExportView(QWidget):
     
     def __init__(self) -> None:
         super().__init__()
+        self.init_ui()
 
+    def init_ui(self):
         self.main_layout = QVBoxLayout(self)
         self.filter_mode = "eligibility"
 
         top_bar = QHBoxLayout()
-        top_bar.addWidget(QLabel("Select a patient to export their record:"))
+        top_bar_title = QLabel("Patient Record Export")
+        top_bar_title.setProperty("styleclass","custom")
+        top_bar.addWidget(top_bar_title)
         top_bar.addStretch()
         self.filter_button = QPushButton()
         self.filter_button.clicked.connect(self._toggle_filter)
@@ -64,7 +91,8 @@ class PatientExportView(QWidget):
         columns_layout = QHBoxLayout()
 
         eligible_column = QVBoxLayout()
-        self.eligible_header = _header("Eligible")
+        self.eligible_header = QLabel("Eligible")
+        self.eligible_header.setProperty("styleclass","custom1")
         eligible_column.addWidget(self.eligible_header)
         self.eligible_list = QListWidget()
         self.eligible_list.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -72,7 +100,8 @@ class PatientExportView(QWidget):
         columns_layout.addLayout(eligible_column)
 
         ineligible_column = QVBoxLayout()
-        self.ineligible_header = _header("Ineligible")
+        self.ineligible_header = QLabel("Ineligible")
+        self.ineligible_header.setProperty("styleclass","custom1")
         ineligible_column.addWidget(self.ineligible_header)
         self.ineligible_list = QListWidget()
         self.ineligible_list.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -85,22 +114,13 @@ class PatientExportView(QWidget):
         self.eligible_list.itemSelectionChanged.connect(self._on_eligible_selected)
         self.ineligible_list.itemSelectionChanged.connect(self._on_ineligible_selected)
 
-        self.email_button = QPushButton("Email")
-        self.email_button.clicked.connect(self._on_email_clicked)
-        self.main_layout.addWidget(self.email_button)
-        self.email_button.setIcon(_icon("emailbutton.png"))
-        self.email_button.setIconSize(QSize(20, 20))
-
         self.export_button = QPushButton("Export to PDF")
         self.export_button.clicked.connect(self._on_export_clicked)
         self.main_layout.addWidget(self.export_button)
         self.export_button.setIcon(_icon("exportbutton.png"))
         self.export_button.setIconSize(QSize(20, 20))
 
-        self.setStyleSheet("""
-            QListWidget::item:selected { background: #dbeafe; color: #1f2937; border: 1px solid #e5e7eb }
-            QListWidget::item:hover    { background: #f1f5f9; border: 1px solid #e5e7eb; }
-        """)
+        self.setStyleSheet(CUSTOM_THEME)
 
 
         self.refresh_patient_list()
@@ -153,26 +173,6 @@ class PatientExportView(QWidget):
         path = Path(tempfile.gettempdir()) / f"{patient['subject_id']}_report.pdf"
         build_patient_pdf(patient["id"], path)
         return path
-
-    def _on_email_clicked(self) -> None:
-        patient = self._selected_patient()
-        if not patient:
-            return
-
-        try:
-            path = self._build_temp_pdf(patient)
-
-            if sys.platform == "darwin":
-                subprocess.run(["open", "-R", str(path)])
-            elif sys.platform.startswith("win"):
-                subprocess.run(["explorer", "/select,", str(path)])
-            else:
-                QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
-
-            subject = quote(f"Patient report {patient['subject_id']}")
-            QDesktopServices.openUrl(QUrl(f"mailto:?subject={subject}"))
-        except Exception as e:
-            QMessageBox.critical(self, "Email failed", str(e))
 
     def _on_export_clicked(self) -> None:
         selected = self.eligible_list.selectedItems() or self.ineligible_list.selectedItems()

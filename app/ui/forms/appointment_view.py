@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
 from app.database.repositories.forms import save_telephone_screening
 from app.database.repositories.patients import list_patients
 from app.services import preferences
+from app.ui.theme import PATIENTS_TABLE_STYLESHEET
+from app.ui.forms.patient_overview_view import PatientOverviewView
 from app.services.slack_reminders import (  # Slack reminders are sent by scripts/send_slack_reminders.py
     REMINDER_MESSAGES,
     parse_date,
@@ -39,7 +41,16 @@ NO_DATE = "No Appointment Date"
 NEEDS_UPDATE = "Need an Appointment Update"
 SORT_GROUP = {None: 0, NEEDS_UPDATE: 1, NO_DATE: 2}  # upcoming first, then past dates, then no date
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
-
+CUSTOM_THEME = PATIENTS_TABLE_STYLESHEET + """
+        QTableWidget::item:selected {
+            background-color: #E0E0E0;
+            color: #212121;
+        }
+        QLabel[styleclass="custom"]{
+            font-size: 18px;
+            font-weight: bold;
+        }
+"""
 
 def _icon(name: str) -> QIcon:
     return QIcon(str(ASSETS_DIR / name))
@@ -82,16 +93,15 @@ class calendarEffects(QCalendarWidget):
 class appointmentView(QWidget):
     def __init__(self) -> None:
         super().__init__()
+        self.init_ui()
+
+    def init_ui(self):
         self.patients = []
         self.main_layout = QVBoxLayout(self)
-        self.setStyleSheet("QLabel { color: #1f2937; }")
 
         title_label = QLabel("Appointments")
-        title_label.setFont(QFont("Helvetica Neue", 25, QFont.Weight.Bold))
+        title_label.setProperty("styleclass", "custom")
         sub_title_label = QLabel("View and manage appointments for patients.")
-        sub_title_font = QFont("Helvetica Neue", 12)
-        sub_title_font.setItalic(True)
-        sub_title_label.setFont(sub_title_font)
 
         self.main_layout.addWidget(title_label)
         self.main_layout.addSpacing(5)
@@ -104,15 +114,17 @@ class appointmentView(QWidget):
             ["Subject ID", "Patient Name", "Schedule Date", "Screener", "Familial Risk", "Sex", "Reminders Sent"]
         )
         self.appointment_table_list.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.appointment_table_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.appointment_table_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.appointment_table_list.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         self.appointment_table_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.appointment_table_list.verticalHeader().setVisible(False)
         self.appointment_table_list.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.appointment_table_list.setFont(QFont("Helvetica Neue", 15))
         self.appointment_table_list.viewport().installEventFilter(self)
         self.appointment_table_list.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.appointment_table_list.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.main_layout.addWidget(self.appointment_table_list, 1)
+
+        self.setStyleSheet(CUSTOM_THEME)
 
     def refresh_appointment_list(self):
         now = datetime.now()
