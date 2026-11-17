@@ -17,8 +17,16 @@ from app.ui.components.topbar import TopBar
 from app.ui.pages.patients_view import PatientsView
 from app.ui.pages.settings_view import SettingsView
 from app.ui.theme import application_stylesheet
+from app.ui.forms.summary_view import PatientExportView
+from app.ui.forms.appointment_view import appointmentView
 
 
+
+# Export patient data to excel sheet or a patient summary 
+# An overview window total number of participants, how many are elgible, 
+# Being able to attach the EEG and their corresponding files to their data
+# A way to keep the infants age updated based on the time the file has been completed --> change action column
+ 
 class MainWindow(QMainWindow):
     def __init__(self, preferences: dict | None = None) -> None:
         super().__init__()
@@ -65,10 +73,10 @@ class MainWindow(QMainWindow):
                 )
             ),
             "Exports": self.pages.addWidget(
-                self._build_placeholder_page(
-                    "Exports",
-                    "Excel export controls will live here when exports are brought into the UI.",
-                )
+                PatientExportView()
+            ),
+            "Appointments": self.pages.addWidget(
+                appointmentView()
             ),
             "Settings": self.pages.addWidget(
                 self.settings_view

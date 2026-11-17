@@ -20,6 +20,8 @@ class Sidebar(QFrame):
             "Patients",
             "Imports",
             "Exports",
+            "Appointments",
+            "Summary",
             "Settings",
         ]
 
